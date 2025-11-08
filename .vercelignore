@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Testing
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Documentation
+*.md
+docs/
+README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Build artifacts
+.next/cache
+.turbo
+
+# Database
+*.db
+*.sqlite
+
+# Misc
+.DS_Store
+*.pem
+

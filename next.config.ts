@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Optimize for Vercel deployment
+  output: 'standalone',
   // Configure external packages for server components
   serverExternalPackages: ['@vercel/blob'],
+  // Optimize bundle size
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
   images: {
     remotePatterns: [
       {
