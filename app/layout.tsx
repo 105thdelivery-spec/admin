@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -5,7 +6,7 @@ import ClientLayoutWrapper from "./components/ClientLayoutWrapper"; // NEW wrapp
 
 export const metadata: Metadata = {
   title: "Admin Panel",
-  description: "Admin Panel",
+  description: "",
 };
 
 const geistSans = Geist({
