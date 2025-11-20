@@ -66,7 +66,17 @@ export async function PUT(
     }
 
     // Convert numeric fields to strings for decimal storage
-    if (productData.price) productData.price = productData.price.toString();
+    // For weight-based products, if price is not provided but pricePerUnit is, use pricePerUnit as price
+    if (productData.stockManagementType === 'weight') {
+      if (!productData.price && productData.pricePerUnit) {
+        productData.price = productData.pricePerUnit.toString();
+      } else if (productData.price) {
+        productData.price = productData.price.toString();
+      }
+    } else {
+      if (productData.price) productData.price = productData.price.toString();
+    }
+    
     if (productData.comparePrice) productData.comparePrice = productData.comparePrice.toString();
     if (productData.costPrice) productData.costPrice = productData.costPrice.toString();
     if (productData.weight) productData.weight = productData.weight.toString();

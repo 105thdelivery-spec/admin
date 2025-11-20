@@ -111,6 +111,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // For weight-based products, if price is not provided but pricePerUnit is, use pricePerUnit as price
+    // This ensures the product has a displayable price
+    const finalPrice = stockManagementType === 'weight' 
+      ? (price || pricePerUnit || 0)
+      : (price || 0);
+    
     const newProduct = {
       id: uuidv4(),
       name,
@@ -118,7 +124,7 @@ export async function POST(req: NextRequest) {
       description: description || null,
       shortDescription: shortDescription || null,
       sku: sku || null,
-      price: (price || 0).toString(),
+      price: finalPrice.toString(),
       comparePrice: comparePrice ? comparePrice.toString() : null,
       costPrice: costPrice ? costPrice.toString() : null,
       images: images ? JSON.stringify(images) : null,
