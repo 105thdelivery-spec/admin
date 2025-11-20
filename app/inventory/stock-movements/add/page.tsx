@@ -2,17 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import CurrencySymbol from '../../../components/CurrencySymbol';
+import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 import { 
   formatWeightAuto, 
   isWeightBasedProduct, 
   convertToGrams,
   parseWeightInput,
   getWeightUnits,
-  formatWeightForInput
+  formatWeightForInput,
+  WeightUnit
 } from '@/utils/weightUtils';
 
 export default function AddStockMovement() {
   const router = useRouter();
+  const { weightLabel } = useWeightLabel();
   const [formData, setFormData] = useState({
     productId: '',
     variantId: '',
@@ -26,7 +29,7 @@ export default function AddStockMovement() {
     supplier: '',
     // Weight-based fields
     weightQuantity: '',
-    weightUnit: 'grams' as 'grams' | 'kg'
+    weightUnit: 'g' as WeightUnit // Will be synced with weightLabel from context
   });
   
   const [products, setProducts] = useState([]);
@@ -75,6 +78,13 @@ export default function AddStockMovement() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // Sync weightUnit with weightLabel from settings
+  useEffect(() => {
+    if (weightLabel) {
+      setFormData(prev => ({ ...prev, weightUnit: weightLabel }));
+    }
+  }, [weightLabel]);
 
   useEffect(() => {
     if (formData.productId) {
@@ -424,7 +434,7 @@ export default function AddStockMovement() {
                       <span className="ml-2 font-medium">
                         {currentInventory ? (
                           isSelectedProductWeightBased() 
-                            ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0')).formattedString
+                            ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
                             : currentInventory.inventory.quantity
                         ) : 'No inventory record'}
                       </span>
@@ -441,7 +451,7 @@ export default function AddStockMovement() {
                 {isSelectedProductWeightBased() ? (
                   <div>
                     <label className="block text-gray-700 mb-2">
-                      {formData.movementType === 'adjustment' ? 'New Total Weight' : 'Weight'} <span className="text-red-500">*</span>
+                      {formData.movementType === 'adjustment' ? 'New Total Weight' : 'Weight'} ({weightLabel}) <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -450,18 +460,13 @@ export default function AddStockMovement() {
                         onChange={(e) => setFormData({...formData, weightQuantity: e.target.value})}
                         className="flex-1 p-2 border rounded focus:border-blue-500 focus:outline-none"
                         min="0"
-                        step="0.001"
-                        placeholder="Enter weight"
+                        step={weightLabel === 'g' ? '1' : '0.01'}
+                        placeholder={`Enter weight in ${weightLabel}`}
                         required
                       />
-                      <select
-                        value={formData.weightUnit}
-                        onChange={(e) => setFormData({...formData, weightUnit: e.target.value as 'grams' | 'kg'})}
-                        className="p-2 border rounded focus:border-blue-500 focus:outline-none"
-                      >
-                        <option value="grams">g</option>
-                        <option value="kg">kg</option>
-                      </select>
+                      <div className="flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded text-gray-700 font-medium">
+                        {weightLabel}
+                      </div>
                     </div>
                     {formData.movementType === 'adjustment' && (
                       <p className="text-xs text-gray-500 mt-1">Enter the new total weight after adjustment</p>
@@ -623,7 +628,7 @@ export default function AddStockMovement() {
                   <div className="text-sm text-gray-600">Current Stock</div>
                   <div className="text-2xl font-bold text-gray-800">
                     {isWeightBased 
-                      ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0')).formattedString
+                      ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
                       : currentInventory.inventory.quantity
                     }
                   </div>
@@ -639,7 +644,7 @@ export default function AddStockMovement() {
                   {formData.movementType === 'in' ? '+' : 
                    formData.movementType === 'out' ? '-' : '±'}
                   {isWeightBased 
-                    ? formatWeightAuto(convertToGrams(parseFloat(formData.weightQuantity || '0'), formData.weightUnit)).formattedString
+                    ? formatWeightAuto(parseFloat(formData.weightQuantity || '0'), weightLabel).formattedString
                     : formData.quantity
                   }
                 </div>
@@ -652,7 +657,7 @@ export default function AddStockMovement() {
                     (isWeightBased ? newWeight : newQuantity) < 0 ? 'text-red-800' : 'text-green-800'
                   }`}>
                     {isWeightBased 
-                      ? formatWeightAuto(newWeight).formattedString
+                      ? formatWeightAuto(newWeight, weightLabel).formattedString
                       : newQuantity
                     }
                   </div>
