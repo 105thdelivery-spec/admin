@@ -187,15 +187,9 @@ export default function StockMovements() {
     };
   };
 
-  const formatWeightDisplay = (weightInGrams: number) => {
-    // If weight is 1kg (1000g) or more, display in kg
-    if (weightInGrams >= 1000) {
-      const weightInKg = convertFromGrams(weightInGrams, 'kg');
-      return `${parseFloat(weightInKg.toFixed(3))}kg`;
-    } else {
-      // If less than 1kg, display in grams
-      return `${Math.round(weightInGrams)}g`;
-    }
+  const formatWeightDisplay = (weight: number) => {
+    // Use the weight label from settings to display weight consistently
+    return formatWeight(weight, weightLabel).formattedString;
   };
 
   if (loading) return <div className="p-8 text-center">Loading stock movements...</div>;
