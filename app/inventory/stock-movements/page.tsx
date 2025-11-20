@@ -187,9 +187,11 @@ export default function StockMovements() {
     };
   };
 
-  const formatWeightDisplay = (weight: number) => {
+  const formatWeightDisplay = (weight: number | string | undefined) => {
     // Use the weight label from settings to display weight consistently
-    return formatWeight(weight, weightLabel).formattedString;
+    // Convert to number to handle database Decimal types or strings
+    const numericWeight = typeof weight === 'number' ? weight : parseFloat(String(weight || '0'));
+    return formatWeight(numericWeight, weightLabel).formattedString;
   };
 
   if (loading) return <div className="p-8 text-center">Loading stock movements...</div>;
