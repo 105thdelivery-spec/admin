@@ -118,7 +118,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     
     { name: 'Inventory', href: '/inventory', icon: BarChart3Icon, category: 'operations' },
     { name: 'Orders', href: '/orders', icon: ShoppingCartIcon, category: 'operations', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null },
-    { name: 'Drivers', href: '/drivers', icon: TruckIcon, category: 'operations' },
+     /*{ name: 'Drivers', href: '/drivers', icon: TruckIcon, category: 'operations' },*/
     { name: 'Pickup Locations', href: '/pickup-locations', icon: MapPinIcon, category: 'operations' },
     { name: 'Reports', href: '/reports', icon: TrendingUpIcon, category: 'operations' },
     /*{ name: 'Returns', href: '/returns', icon: UndoIcon, category: 'operations' },
