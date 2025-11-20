@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, productVariants, productAddons, productTags, tags } from '@/lib/schema';
+import { products, productVariants, productAddons, productTags, tags, variationAttributeValues } from '@/lib/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { nanoid } from 'nanoid';
@@ -89,6 +89,26 @@ export async function PUT(
 
       // Process variants (update existing, create new)
       for (const variant of variants) {
+        // Extract numeric value from variation attributes
+        let numericValue = null;
+        if (variant.attributes && Array.isArray(variant.attributes)) {
+          for (const attr of variant.attributes) {
+            const attributeValue = attr.value || attr.attributeValue;
+            if (attributeValue) {
+              // Look up the numeric_value from variation_attribute_values table
+              const valueRecord = await db.query.variationAttributeValues.findFirst({
+                where: eq(variationAttributeValues.value, attributeValue),
+                columns: { numericValue: true }
+              });
+              if (valueRecord?.numericValue) {
+                numericValue = parseFloat(valueRecord.numericValue.toString());
+                console.log(`Found numeric value ${numericValue} for attribute value: ${attributeValue}`);
+                break; // Use the first numeric value found
+              }
+            }
+          }
+        }
+        
         const variantData = {
           productId: id,
           title: variant.title,
@@ -104,6 +124,7 @@ export async function PUT(
           isActive: variant.isActive !== undefined ? variant.isActive : true,
           position: 0,
           variantOptions: variant.attributes ? JSON.stringify(variant.attributes) : null,
+          numericValueOfVariationAttribute: numericValue ? numericValue.toString() : null,
         };
 
         if (variant.id) {

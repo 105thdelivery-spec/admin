@@ -246,8 +246,9 @@ export default function AddProduct() {
       const addonsData = await addonsRes.json();
       
       setCategories(categoriesData);
-      setAvailableAttributes(attributesData);
-      setAvailableAddons(addonsData.filter((addon: any) => addon.isActive));
+      // Ensure attributesData is an array
+      setAvailableAttributes(Array.isArray(attributesData) ? attributesData : []);
+      setAvailableAddons(Array.isArray(addonsData) ? addonsData.filter((addon: any) => addon.isActive) : []);
     } catch (err) {
       console.error(err);
       setError('Failed to load initial data');
@@ -364,7 +365,9 @@ export default function AddProduct() {
 
   // Variation attribute management
   const addSelectedAttribute = (attributeId: string) => {
-    const attribute = availableAttributes.find(attr => attr.id === attributeId);
+    const attribute = Array.isArray(availableAttributes) 
+      ? availableAttributes.find(attr => attr.id === attributeId)
+      : null;
     if (!attribute) return;
 
     const isAlreadySelected = selectedAttributes.some(attr => attr.id === attributeId);
@@ -642,7 +645,7 @@ export default function AddProduct() {
         </div>
 
         {/* Stock Management Type Selection */}
-        <div className="mb-6 p-4 border rounded-lg bg-blue-50 hidden">
+        <div className="mb-6 p-4 border rounded-lg bg-blue-50">
           <h3 className="text-lg font-semibold mb-4">⚖️ Stock Management Type</h3>
           <div className="space-y-4">
             <div className="flex gap-6">
@@ -1306,7 +1309,7 @@ export default function AddProduct() {
                 value=""
               >
                 <option value="">Select an attribute to add...</option>
-                {availableAttributes
+                {Array.isArray(availableAttributes) && availableAttributes
                   .filter(attr => !selectedAttributes.some(selected => selected.id === attr.id))
                   .map((attr) => (
                     <option key={attr.id} value={attr.id}>
@@ -1319,7 +1322,9 @@ export default function AddProduct() {
             {/* Selected Attributes */}
             <div className="space-y-3 max-h-96 overflow-y-auto flex gap-3 flex-wrap" style={{  display: 'flex', flexWrap: 'wrap', gap: '10px', margin: '10px 0 0 2%' }}>
               {selectedAttributes.map((selectedAttr) => {
-                const dbAttribute = availableAttributes.find(attr => attr.id === selectedAttr.id);
+                const dbAttribute = Array.isArray(availableAttributes)
+                  ? availableAttributes.find(attr => attr.id === selectedAttr.id)
+                  : null;
                 if (!dbAttribute) return null;
 
                 return (

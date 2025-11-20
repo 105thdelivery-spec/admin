@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, categories, subcategories, productVariants, productAddons, productTags, tags } from '@/lib/schema';
+import { products, categories, subcategories, productVariants, productAddons, productTags, tags, variationAttributeValues } from '@/lib/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -155,25 +155,50 @@ export async function POST(req: NextRequest) {
     
     // If it's a variable product, create variants
     if (productType === 'variable' && variants && variants.length > 0) {
-      const variantData = variants.map((variant: any) => ({
-        id: uuidv4(),
-        productId: newProduct.id,
-        title: variant.title,
-        sku: variant.sku || null,
-        price: variant.price ? variant.price.toString() : newProduct.price,
-        comparePrice: variant.comparePrice ? variant.comparePrice.toString() : null,
-        costPrice: variant.costPrice ? variant.costPrice.toString() : null,
-        weight: variant.weight ? variant.weight.toString() : null,
-        image: variant.image || null,
-        inventoryQuantity: variant.inventoryQuantity || 0,
-        inventoryManagement: true,
-        allowBackorder: false,
-        isActive: variant.isActive !== undefined ? variant.isActive : true,
-        outOfStock: variant.outOfStock || false,
-        position: 0,
-        variantOptions: variant.attributes ? JSON.stringify(variant.attributes) : null,
-      }));
+      // Prepare variant data with numeric values
+      const variantDataPromises = variants.map(async (variant: any) => {
+        // Extract numeric value from variation attributes
+        let numericValue = null;
+        if (variant.attributes && Array.isArray(variant.attributes)) {
+          for (const attr of variant.attributes) {
+            const attributeValue = attr.value || attr.attributeValue;
+            if (attributeValue) {
+              // Look up the numeric_value from variation_attribute_values table
+              const valueRecord = await db.query.variationAttributeValues.findFirst({
+                where: eq(variationAttributeValues.value, attributeValue),
+                columns: { numericValue: true }
+              });
+              if (valueRecord?.numericValue) {
+                numericValue = parseFloat(valueRecord.numericValue.toString());
+                console.log(`Found numeric value ${numericValue} for attribute value: ${attributeValue}`);
+                break; // Use the first numeric value found
+              }
+            }
+          }
+        }
+        
+        return {
+          id: uuidv4(),
+          productId: newProduct.id,
+          title: variant.title,
+          sku: variant.sku || null,
+          price: variant.price ? variant.price.toString() : newProduct.price,
+          comparePrice: variant.comparePrice ? variant.comparePrice.toString() : null,
+          costPrice: variant.costPrice ? variant.costPrice.toString() : null,
+          weight: variant.weight ? variant.weight.toString() : null,
+          image: variant.image || null,
+          inventoryQuantity: variant.inventoryQuantity || 0,
+          inventoryManagement: true,
+          allowBackorder: false,
+          isActive: variant.isActive !== undefined ? variant.isActive : true,
+          outOfStock: variant.outOfStock || false,
+          position: 0,
+          variantOptions: variant.attributes ? JSON.stringify(variant.attributes) : null,
+          numericValueOfVariationAttribute: numericValue ? numericValue.toString() : null,
+        };
+      });
       
+      const variantData = await Promise.all(variantDataPromises);
       await db.insert(productVariants).values(variantData);
     }
     

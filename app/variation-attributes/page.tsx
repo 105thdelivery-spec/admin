@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function VariationAttributesList() {
-  const [attributes, setAttributes] = useState([]);
+  const [attributes, setAttributes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -12,9 +12,10 @@ export default function VariationAttributesList() {
     try {
       const res = await fetch('/api/variation-attributes?includeValues=true');
       const data = await res.json();
-      setAttributes(data);
+      setAttributes(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setAttributes([]);
     } finally {
       setLoading(false);
     }
@@ -28,17 +29,19 @@ export default function VariationAttributesList() {
     if (confirm('Are you sure you want to delete this variation attribute? All its values will also be deleted.')) {
       try {
         await fetch(`/api/variation-attributes/${id}`, { method: 'DELETE' });
-        setAttributes(attributes.filter((attr: any) => attr.id !== id));
+        setAttributes(Array.isArray(attributes) ? attributes.filter((attr: any) => attr.id !== id) : []);
       } catch (error) {
         console.error('Error deleting variation attribute:', error);
       }
     }
   };
 
-  const filteredAttributes = attributes.filter((attr: any) =>
-    attr.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    attr.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAttributes = Array.isArray(attributes) 
+    ? attributes.filter((attr: any) =>
+        attr.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        attr.slug.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   const getTypeIcon = (type: string) => {
     switch (type) {

@@ -9,13 +9,14 @@ export default function ManageAttributeValues() {
   const attributeId = params.id as string;
   
   const [attribute, setAttribute] = useState<any>(null);
-  const [values, setValues] = useState([]);
+  const [values, setValues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingValue, setEditingValue] = useState<any>(null);
   const [formData, setFormData] = useState({
     value: '',
     slug: '',
+    numericValue: '',
     colorCode: '',
     image: '',
     description: '',
@@ -42,10 +43,11 @@ export default function ManageAttributeValues() {
       const valuesData = await valuesRes.json();
       
       setAttribute(attrData);
-      setValues(valuesData);
+      setValues(Array.isArray(valuesData) ? valuesData : []);
     } catch (err) {
       console.error(err);
       setError('Failed to load attribute data');
+      setValues([]);
     } finally {
       setLoading(false);
     }
@@ -130,6 +132,7 @@ export default function ManageAttributeValues() {
     setFormData({
       value: '',
       slug: '',
+      numericValue: '',
       colorCode: '',
       image: '',
       description: '',
@@ -147,6 +150,7 @@ export default function ManageAttributeValues() {
     setFormData({
       value: value.value || '',
       slug: value.slug || '',
+      numericValue: value.numericValue || '',
       colorCode: value.colorCode || '',
       image: value.image || '',
       description: value.description || '',
@@ -271,6 +275,23 @@ export default function ManageAttributeValues() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-gray-700 font-medium mb-2" htmlFor="numericValue">
+                Numeric Value
+                <span className="text-sm text-gray-500 ml-2">(Optional - e.g., 100 for 100g, 8 for size 8)</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                id="numericValue"
+                name="numericValue"
+                value={formData.numericValue}
+                onChange={handleFormChange}
+                className="w-full p-3 border rounded-lg focus:border-blue-500 focus:outline-none"
+                placeholder="e.g., 100, 250, 500"
+              />
+            </div>
+
             {attribute?.type === 'color' && (
               <div>
                 <label className="block text-gray-700 font-medium mb-2" htmlFor="colorCode">
@@ -393,6 +414,7 @@ export default function ManageAttributeValues() {
                   <th className="text-left p-3">Preview</th>
                   <th className="text-left p-3">Value</th>
                   <th className="text-left p-3">Slug</th>
+                  <th className="text-left p-3">Numeric Value</th>
                   {attribute?.type === 'color' && <th className="text-left p-3">Color Code</th>}
                   <th className="text-left p-3">Sort Order</th>
                   <th className="text-left p-3">Status</th>
@@ -423,6 +445,9 @@ export default function ManageAttributeValues() {
                     </td>
                     <td className="p-3 font-medium">{item.value.value}</td>
                     <td className="p-3 text-gray-600 font-mono text-sm">{item.value.slug}</td>
+                    <td className="p-3 text-gray-600">
+                      {item.value.numericValue ? parseFloat(item.value.numericValue) : '-'}
+                    </td>
                     {attribute?.type === 'color' && (
                       <td className="p-3 text-gray-600 font-mono text-sm">
                         {item.value.colorCode || '-'}
