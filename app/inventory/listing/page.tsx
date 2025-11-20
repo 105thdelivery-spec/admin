@@ -211,7 +211,7 @@ export default function InventoryListing() {
       reference: '',
       location: '',
       weightQuantity: '',
-      weightUnit: 'grams'
+      weightUnit: 'g'
     });
     setShowQuickAdd(true);
   };
