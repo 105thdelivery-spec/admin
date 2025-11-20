@@ -1,6 +1,6 @@
-// Weight conversion utilities
+// Weight utilities - Simplified (No Conversion)
 
-export type WeightUnit = 'grams' | 'kg';
+export type WeightUnit = 'g' | 'kg' | 'lb' | 'oz';
 
 export interface WeightValue {
   value: number;
@@ -14,137 +14,42 @@ export interface WeightDisplay {
 }
 
 /**
- * Convert weight to grams (base unit for storage)
+ * Format weight for display with the specified unit label
+ * No conversion - just formats the value with the unit
  */
-export function convertToGrams(value: number, unit: WeightUnit): number {
-  switch (unit) {
-    case 'grams':
-      return value;
-    case 'kg':
-      return value * 1000;
-    default:
-      throw new Error(`Unsupported weight unit: ${unit}`);
-  }
-}
-
-/**
- * Convert grams to specified unit
- */
-export function convertFromGrams(grams: number, targetUnit: WeightUnit): number {
-  switch (targetUnit) {
-    case 'grams':
-      return grams;
-    case 'kg':
-      return grams / 1000;
-    default:
-      throw new Error(`Unsupported weight unit: ${targetUnit}`);
-  }
-}
-
-/**
- * Convert weight from one unit to another
- */
-export function convertWeight(value: number, fromUnit: WeightUnit, toUnit: WeightUnit): number {
-  const grams = convertToGrams(value, fromUnit);
-  return convertFromGrams(grams, toUnit);
-}
-
-/**
- * Format weight for display with appropriate precision
- */
-export function formatWeight(grams: number, displayUnit: WeightUnit = 'grams'): WeightDisplay {
-  const displayValue = convertFromGrams(grams, displayUnit);
-  
+export function formatWeight(value: number, displayUnit: WeightUnit = 'g'): WeightDisplay {
   let formattedValue: string;
-  let unitLabel: string;
   
+  // Format based on typical precision for each unit
   switch (displayUnit) {
-    case 'grams':
-      formattedValue = displayValue.toFixed(0);
-      unitLabel = displayValue === 1 ? 'gram' : 'grams';
+    case 'g':
+      formattedValue = value.toFixed(0);
       break;
     case 'kg':
-      formattedValue = displayValue.toFixed(3);
-      unitLabel = 'kg';
+      formattedValue = value.toFixed(2);
+      break;
+    case 'lb':
+      formattedValue = value.toFixed(2);
+      break;
+    case 'oz':
+      formattedValue = value.toFixed(1);
       break;
     default:
-      formattedValue = displayValue.toString();
-      unitLabel = displayUnit;
+      formattedValue = value.toString();
   }
   
   return {
-    displayValue,
+    displayValue: value,
     displayUnit,
-    formattedString: `${formattedValue} ${unitLabel}`
+    formattedString: `${formattedValue}${displayUnit}`
   };
 }
 
 /**
- * Auto-format weight with the most appropriate unit
+ * Auto-format weight (legacy function - now just uses formatWeight)
  */
-export function formatWeightAuto(grams: number): WeightDisplay {
-  if (grams >= 1000) {
-    return formatWeight(grams, 'kg');
-  } else {
-    return formatWeight(grams, 'grams');
-  }
-}
-
-/**
- * Parse weight input string (e.g., "1.5kg", "500g", "2.5")
- */
-export function parseWeightInput(input: string, defaultUnit: WeightUnit = 'grams'): WeightValue | null {
-  if (!input || input.trim() === '') {
-    return null;
-  }
-  
-  const trimmed = input.trim().toLowerCase();
-  
-  // Extract number and unit
-  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(g|grams?|kg|kilograms?)?$/);
-  
-  if (!match) {
-    return null;
-  }
-  
-  const value = parseFloat(match[1]);
-  let unit: WeightUnit = defaultUnit;
-  
-  if (match[2]) {
-    const unitStr = match[2];
-    if (unitStr === 'g' || unitStr.startsWith('gram')) {
-      unit = 'grams';
-    } else if (unitStr === 'kg' || unitStr.startsWith('kilogram')) {
-      unit = 'kg';
-    }
-  }
-  
-  return { value, unit };
-}
-
-/**
- * Validate weight value
- */
-export function validateWeight(grams: number): { isValid: boolean; error?: string } {
-  if (isNaN(grams) || grams < 0) {
-    return { isValid: false, error: 'Weight must be a positive number' };
-  }
-  
-  if (grams > 1000000) { // 1000kg limit
-    return { isValid: false, error: 'Weight cannot exceed 1000kg' };
-  }
-  
-  return { isValid: true };
-}
-
-/**
- * Calculate price for weight-based products
- */
-export function calculateWeightBasedPrice(
-  weightInGrams: number, 
-  pricePerGram: number
-): number {
-  return weightInGrams * pricePerGram;
+export function formatWeightAuto(value: number, displayUnit: WeightUnit = 'g'): WeightDisplay {
+  return formatWeight(value, displayUnit);
 }
 
 /**
@@ -152,9 +57,29 @@ export function calculateWeightBasedPrice(
  */
 export function getWeightUnits(): Array<{ value: WeightUnit; label: string }> {
   return [
-    { value: 'grams', label: 'Grams (g)' },
-    { value: 'kg', label: 'Kilograms (kg)' }
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'oz', label: 'Ounce (oz)' },
+    { value: 'lb', label: 'Pound (lb)' },
+    { value: 'kg', label: 'Kilogram (kg)' }
   ];
+}
+
+/**
+ * Get the full name of a weight unit
+ */
+export function getWeightUnitLabel(unit: WeightUnit): string {
+  switch (unit) {
+    case 'g':
+      return 'gram';
+    case 'kg':
+      return 'kilogram';
+    case 'lb':
+      return 'pound';
+    case 'oz':
+      return 'ounce';
+    default:
+      return unit;
+  }
 }
 
 /**
@@ -181,15 +106,71 @@ export function getWeightStockStatus(
 }
 
 /**
- * Format weight for input fields (removes unnecessary decimals)
+ * Format weight for input fields
  */
-export function formatWeightForInput(grams: number, unit: WeightUnit): string {
-  const value = convertFromGrams(grams, unit);
-  
-  if (unit === 'grams') {
+export function formatWeightForInput(value: number, unit: WeightUnit): string {
+  if (unit === 'g') {
     return Math.round(value).toString();
+  } else if (unit === 'kg') {
+    return value.toFixed(2);
   } else {
-    // For kg, show up to 3 decimal places, removing trailing zeros
-    return parseFloat(value.toFixed(3)).toString();
+    return value.toFixed(2);
   }
-} 
+}
+
+/**
+ * Legacy functions for backward compatibility
+ */
+export function convertToGrams(value: number, unit: WeightUnit | 'grams'): number {
+  // No conversion - just return the value as-is
+  return value;
+}
+
+export function convertFromGrams(grams: number, targetUnit: WeightUnit | 'grams'): number {
+  // No conversion - just return the value as-is
+  return grams;
+}
+
+export function convertWeight(value: number, fromUnit: WeightUnit | 'grams', toUnit: WeightUnit | 'grams'): number {
+  // No conversion - just return the value as-is
+  return value;
+}
+
+export function parseWeightInput(input: string, defaultUnit: WeightUnit = 'g'): WeightValue | null {
+  if (!input || input.trim() === '') {
+    return null;
+  }
+  
+  const trimmed = input.trim().toLowerCase();
+  
+  // Extract number and unit
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(g|kg|lb|oz)?$/);
+  
+  if (!match) {
+    return null;
+  }
+  
+  const value = parseFloat(match[1]);
+  let unit: WeightUnit = defaultUnit;
+  
+  if (match[2]) {
+    unit = match[2] as WeightUnit;
+  }
+  
+  return { value, unit };
+}
+
+export function validateWeight(value: number): { isValid: boolean; error?: string } {
+  if (isNaN(value) || value < 0) {
+    return { isValid: false, error: 'Weight must be a positive number' };
+  }
+  
+  return { isValid: true };
+}
+
+export function calculateWeightBasedPrice(
+  weight: number, 
+  pricePerUnit: number
+): number {
+  return weight * pricePerUnit;
+}

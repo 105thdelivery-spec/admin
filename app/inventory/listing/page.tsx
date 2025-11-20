@@ -5,8 +5,12 @@ import {
   formatWeightAuto, 
   isWeightBasedProduct, 
   convertToGrams,
-  getWeightStockStatus
+  getWeightStockStatus,
+  formatWeight,
+  WeightUnit,
+  getWeightUnits
 } from '@/utils/weightUtils';
+import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 
 interface ProductInventory {
   productId: string;
@@ -62,6 +66,7 @@ interface QuickStockUpdate {
 }
 
 export default function InventoryListing() {
+  const { weightLabel } = useWeightLabel();
   const [inventory, setInventory] = useState<ProductInventory[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<ProductInventory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +85,7 @@ export default function InventoryListing() {
     location: '',
     // Weight-based fields
     weightQuantity: '',
-    weightUnit: 'grams' as 'grams' | 'kg'
+    weightUnit: weightLabel // Use weight label from settings
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -483,10 +488,10 @@ export default function InventoryListing() {
                         <td className="border-b p-3">
                           {isWeightBased ? (
                             <div>
-                              <span className="font-semibold">{formatWeightAuto(item.simpleStock.currentWeight || 0).formattedString}</span>
+                              <span className="font-semibold">{formatWeight(item.simpleStock.currentWeight || 0, weightLabel).formattedString}</span>
                               {(item.simpleStock.reservedWeight || 0) > 0 && (
                                 <span className="text-sm text-orange-600 ml-1">
-                                  ({formatWeightAuto(item.simpleStock.reservedWeight || 0).formattedString} reserved)
+                                  ({formatWeight(item.simpleStock.reservedWeight || 0, weightLabel).formattedString} reserved)
                                 </span>
                               )}
                             </div>
@@ -504,7 +509,7 @@ export default function InventoryListing() {
                         <td className="border-b p-3">
                           <span className="font-semibold text-green-600">
                             {isWeightBased 
-                              ? formatWeightAuto(item.simpleStock.availableWeight || 0).formattedString
+                              ? formatWeight(item.simpleStock.availableWeight || 0, weightLabel).formattedString
                               : item.simpleStock.availableStock
                             }
                           </span>
@@ -593,10 +598,10 @@ export default function InventoryListing() {
                           <td className="border-b p-3">
                             {isWeightBased ? (
                               <div>
-                                <span className="font-semibold">{formatWeightAuto(variant.currentWeight || 0).formattedString}</span>
+                                <span className="font-semibold">{formatWeight(variant.currentWeight || 0, weightLabel).formattedString}</span>
                                 {(variant.reservedWeight || 0) > 0 && (
                                   <span className="text-sm text-orange-600 ml-1">
-                                    ({formatWeightAuto(variant.reservedWeight || 0).formattedString} reserved)
+                                    ({formatWeight(variant.reservedWeight || 0, weightLabel).formattedString} reserved)
                                   </span>
                                 )}
                               </div>
@@ -614,7 +619,7 @@ export default function InventoryListing() {
                           <td className="border-b p-3">
                             <span className="font-semibold text-green-600">
                               {isWeightBased 
-                                ? formatWeightAuto(variant.availableWeight || 0).formattedString
+                                ? formatWeight(variant.availableWeight || 0, weightLabel).formattedString
                                 : variant.availableStock
                               }
                             </span>
@@ -683,7 +688,7 @@ export default function InventoryListing() {
               </div>
               <div className="text-sm text-gray-500">
                 Current Stock: {quickAddData.isWeightBased 
-                  ? formatWeightAuto(quickAddData.currentWeight || 0).formattedString
+                  ? formatWeight(quickAddData.currentWeight || 0, weightLabel).formattedString
                   : quickAddData.currentStock
                 }
               </div>
@@ -708,11 +713,12 @@ export default function InventoryListing() {
                     />
                     <select
                       value={quickAddForm.weightUnit}
-                      onChange={(e) => setQuickAddForm({...quickAddForm, weightUnit: e.target.value as 'grams' | 'kg'})}
+                      onChange={(e) => setQuickAddForm({...quickAddForm, weightUnit: e.target.value as WeightUnit})}
                       className="p-2 border rounded focus:border-blue-500 focus:outline-none"
                     >
-                      <option value="grams">g</option>
-                      <option value="kg">kg</option>
+                      {getWeightUnits().map(unit => (
+                        <option key={unit.value} value={unit.value}>{unit.value}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ import TagSelector from '../../../components/TagSelector';
 import VariantManager from '../../../../components/VariantManager';
 import useProductVariants from '../../../../hooks/useProductVariants';
 import { formatPrice, calculatePriceRange } from '../../../../utils/priceUtils';
+import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 import { 
   normalizeVariationAttributes, 
   normalizeVariantOptions, 
@@ -78,6 +79,7 @@ export default function EditProduct() {
   const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
+  const { weightLabel } = useWeightLabel();
   
   // Use the custom hook for variants
   const { data: variantData, loading: variantsLoading, refetch: refetchVariants } = useProductVariants(productId);
@@ -105,8 +107,7 @@ export default function EditProduct() {
     banner: '', // Banner image URL
     // Weight-based stock management fields
     stockManagementType: 'quantity', // 'quantity' or 'weight'
-    pricePerUnit: '', // Price per gram for weight-based products
-    baseWeightUnit: 'grams', // 'grams' or 'kg'
+    pricePerUnit: '', // Price per unit for weight-based products
     // Cannabis-specific fields
     thc: '',
     cbd: '',
@@ -199,7 +200,6 @@ export default function EditProduct() {
         // Weight-based stock management fields
         stockManagementType: product.stockManagementType || 'quantity',
         pricePerUnit: product.pricePerUnit || '',
-        baseWeightUnit: product.baseWeightUnit || 'grams',
         // Cannabis-specific fields
         thc: product.thc || '',
         cbd: product.cbd || '',
@@ -887,7 +887,7 @@ export default function EditProduct() {
               {formData.stockManagementType === 'quantity' ? (
                 <p>📦 <strong>Quantity-based:</strong> Track inventory by individual units/pieces (e.g., 5 shirts, 10 books)</p>
               ) : (
-                <p>⚖️ <strong>Weight-based:</strong> Track inventory by weight (e.g., 2.5kg rice, 500g coffee beans)</p>
+                <p>⚖️ <strong>Weight-based:</strong> Track inventory by weight (e.g., 2.5kg rice or 500oz coffee beans)</p>
               )}
             </div>
 
@@ -898,12 +898,9 @@ export default function EditProduct() {
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                    <div>
                      <label className="block text-gray-700 mb-2" htmlFor="pricePerUnit">
-                       Price per {formData.baseWeightUnit === 'kg' ? 'Kilogram' : 'Gram'} <span className="text-red-500">*</span>
+                       Price per {weightLabel} <span className="text-red-500">*</span>
                        <span className="text-sm text-gray-500 block">
-                         {formData.baseWeightUnit === 'kg' 
-                           ? '(e.g., $50 per kg)' 
-                           : '(e.g., $0.05 per gram = $50 per kg)'
-                         }
+                         (e.g., $0.05 per {weightLabel})
                        </span>
                      </label>
                      <input
@@ -913,15 +910,15 @@ export default function EditProduct() {
                        value={formData.pricePerUnit}
                        onChange={handleChange}
                        className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                       step={formData.baseWeightUnit === 'kg' ? '0.01' : '0.0001'}
+                       step="0.01"
                        min="0"
-                       placeholder={formData.baseWeightUnit === 'kg' ? '50.00' : '0.0500'}
+                       placeholder="0.05"
                        required={formData.stockManagementType === 'weight'}
                      />
                    </div>
                    <div>
                      <label className="block text-gray-700 mb-2" htmlFor="costPrice">
-                       Cost per {formData.baseWeightUnit === 'kg' ? 'Kilogram' : 'Gram'} <span className="text-sm text-gray-500">(For profit tracking)</span>
+                       Cost per {weightLabel} <span className="text-sm text-gray-500">(For profit tracking)</span>
                      </label>
                      <input
                        type="number"
@@ -930,28 +927,24 @@ export default function EditProduct() {
                        value={formData.costPrice}
                        onChange={handleChange}
                        className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                       step={formData.baseWeightUnit === 'kg' ? '0.01' : '0.0001'}
+                       step="0.01"
                        min="0"
-                       placeholder={formData.baseWeightUnit === 'kg' ? '30.00' : '0.0300'}
+                       placeholder="0.03"
                      />
                      <p className="text-xs text-gray-500 mt-1">
                        Used to calculate profit margins for weight-based products
                      </p>
                    </div>
                    <div>
-                     <label className="block text-gray-700 mb-2" htmlFor="baseWeightUnit">
-                       Base Weight Unit
+                     <label className="block text-gray-700 mb-2">
+                       Weight Unit
                      </label>
-                     <select
-                       id="baseWeightUnit"
-                       name="baseWeightUnit"
-                       value={formData.baseWeightUnit}
-                       onChange={handleChange}
-                       className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                     >
-                       <option value="grams">Grams (g)</option>
-                       <option value="kg">Kilograms (kg)</option>
-                     </select>
+                     <div className="w-full p-3 border rounded bg-gray-50">
+                       <span className="font-medium text-gray-700">{weightLabel}</span>
+                       <p className="text-xs text-gray-500 mt-1">
+                         Weight unit is set in Settings. Current: {weightLabel}
+                       </p>
+                     </div>
                    </div>
                  </div>
                  
@@ -959,32 +952,12 @@ export default function EditProduct() {
                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
                      <p className="text-sm text-green-700">
                        <strong>Price Preview:</strong> 
-                       {formData.baseWeightUnit === 'kg' ? (
-                         <>
-                           <CurrencySymbol />{parseFloat(formData.pricePerUnit || '0').toFixed(2)} per kg = 
-                           <CurrencySymbol />{(parseFloat(formData.pricePerUnit || '0') / 1000).toFixed(4)} per gram
-                         </>
-                       ) : (
-                         <>
-                           <CurrencySymbol />{parseFloat(formData.pricePerUnit || '0').toFixed(4)} per gram = 
-                           <CurrencySymbol />{(parseFloat(formData.pricePerUnit || '0') * 1000).toFixed(2)} per kg
-                         </>
-                       )}
+                       <CurrencySymbol />{parseFloat(formData.pricePerUnit || '0').toFixed(2)} per {weightLabel}
                      </p>
                      {formData.costPrice && (
                        <p className="text-sm text-orange-700 mt-1">
                          <strong>Cost Preview:</strong> 
-                         {formData.baseWeightUnit === 'kg' ? (
-                           <>
-                             <CurrencySymbol />{parseFloat(formData.costPrice || '0').toFixed(2)} per kg = 
-                             <CurrencySymbol />{(parseFloat(formData.costPrice || '0') / 1000).toFixed(4)} per gram
-                           </>
-                         ) : (
-                           <>
-                             <CurrencySymbol />{parseFloat(formData.costPrice || '0').toFixed(4)} per gram = 
-                             <CurrencySymbol />{(parseFloat(formData.costPrice || '0') * 1000).toFixed(2)} per kg
-                           </>
-                         )}
+                         <CurrencySymbol />{parseFloat(formData.costPrice || '0').toFixed(2)} per {weightLabel}
                        </p>
                      )}
                      {formData.pricePerUnit && formData.costPrice && (
@@ -995,7 +968,7 @@ export default function EditProduct() {
                            const cost = parseFloat(formData.costPrice || '0');
                            const profit = price - cost;
                            const margin = price > 0 ? (profit / price) * 100 : 0;
-                           return `${margin.toFixed(1)}% (${profit >= 0 ? '+' : ''}<CurrencySymbol />${profit.toFixed(formData.baseWeightUnit === 'kg' ? 2 : 4)} per ${formData.baseWeightUnit === 'kg' ? 'kg' : 'gram'})`;
+                           return `${margin.toFixed(1)}% (${profit >= 0 ? '+' : ''}<CurrencySymbol />${profit.toFixed(2)} per ${weightLabel})`;
                          })()}
                        </p>
                      )}

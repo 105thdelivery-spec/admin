@@ -83,13 +83,16 @@ export default function SettingsPage() {
     fee: 0
   });
 
+  // Weight label setting
+  const [weightLabel, setWeightLabel] = useState('g');
+
   useEffect(() => {
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
     try {
-      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes, deliveryRes, shippingRes] = await Promise.all([
+      const [stockRes, taxRes, loyaltyRes, appearanceRes, storeRes, orderRes, deliveryRes, shippingRes, weightLabelRes] = await Promise.all([
         fetch('/api/settings/stock-management'),
         fetch('/api/settings/tax-settings'),
         fetch('/api/settings/loyalty'),
@@ -97,7 +100,8 @@ export default function SettingsPage() {
         fetch('/api/settings/store'),
         fetch('/api/settings/order-config'),
         fetch('/api/settings/delivery'),
-        fetch('/api/settings/shipping')
+        fetch('/api/settings/shipping'),
+        fetch('/api/settings/weight-label')
       ]);
       
       const stockData = await stockRes.json();
@@ -108,6 +112,7 @@ export default function SettingsPage() {
       const orderData = await orderRes.json();
       const deliveryData = await deliveryRes.json();
       const shippingData = await shippingRes.json();
+      const weightLabelData = await weightLabelRes.json();
       
       setStockManagementEnabled(stockData.stockManagementEnabled);
       setVatTax(taxData.vatTax);
@@ -148,6 +153,11 @@ export default function SettingsPage() {
           customMessage: shippingData.customMessage,
           fee: shippingData.fee
         });
+      }
+
+      // Set weight label
+      if (weightLabelData.success && weightLabelData.weightLabel) {
+        setWeightLabel(weightLabelData.weightLabel);
       }
     } catch (err) {
       console.error(err);
@@ -632,6 +642,31 @@ export default function SettingsPage() {
       }
 
       setSuccess('Shipping settings updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveWeightLabel = async () => {
+    try {
+      setSaving(true);
+      setError('');
+
+      const response = await fetch('/api/settings/weight-label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weightLabel })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update weight label setting');
+      }
+
+      setSuccess('Weight label setting updated successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message);
@@ -1484,6 +1519,105 @@ export default function SettingsPage() {
             ) : (
               <p>❌ Orders will be created without inventory validation</p>
             )}
+          </div>
+        </div>
+
+        {/* Weight Label Settings Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-800">Weight Label Settings</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Select the default weight unit for displaying product weights
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Default Weight Unit
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { value: 'lb', label: 'Pound (lb)', description: 'Imperial unit' },
+                  { value: 'oz', label: 'Ounce (oz)', description: 'Imperial unit' },
+                  { value: 'kg', label: 'Kilogram (kg)', description: 'Metric unit' },
+                  { value: 'g', label: 'Gram (g)', description: 'Metric unit' }
+                ].map((unit) => (
+                  <button
+                    key={unit.value}
+                    onClick={() => setWeightLabel(unit.value)}
+                    disabled={saving}
+                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                      weightLabel === unit.value
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <div className="text-center">
+                      <div className="font-bold text-lg mb-1">{unit.value}</div>
+                      <div className="text-xs opacity-75">{unit.description}</div>
+                    </div>
+                    {weightLabel === unit.value && (
+                      <div className="flex justify-center mt-2">
+                        <div className="text-blue-500">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview Section */}
+            <div className="border-t pt-4">
+              <h4 className="text-md font-medium text-gray-700 mb-3">Preview</h4>
+              <div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50">
+                <div className="flex items-center text-blue-800">
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium">Product weight will be displayed as:</p>
+                    <p className="text-lg font-bold mt-1">
+                      {weightLabel === 'lb' && '2.2 lb'}
+                      {weightLabel === 'oz' && '35.2 oz'}
+                      {weightLabel === 'kg' && '1.0 kg'}
+                      {weightLabel === 'g' && '1000 g'}
+                    </p>
+                    <p className="text-xs mt-1 opacity-75">
+                      Selected unit: <span className="font-semibold">{weightLabel}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Information Box */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-amber-600 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">Note:</p>
+                  <p>This setting determines how weight is displayed throughout your store. Weight-based products will show their weights in the selected unit.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleSaveWeightLabel}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save Weight Label Setting'}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import {
   getWeightStockStatus,
   formatWeight 
 } from '@/utils/weightUtils';
+import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 import CurrencySymbol from '../components/CurrencySymbol';
 import ResponsiveTable from '../components/ResponsiveTable';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,7 @@ interface InventoryItem {
 }
 
 export default function InventoryList() {
+  const { weightLabel } = useWeightLabel();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,13 +361,13 @@ export default function InventoryList() {
       render: (_: any, item: InventoryItem) => (
                  <div className="text-sm">
            <div className="font-medium">
-             Total: {formatWeightAuto(parseFloat(item.inventory.weightQuantity || '0')).formattedString}
+             Total: {formatWeight(parseFloat(item.inventory.weightQuantity || '0'), weightLabel).formattedString}
            </div>
            <div className="text-muted-foreground">
-             Available: {formatWeightAuto(parseFloat(item.inventory.availableWeight || '0')).formattedString}
+             Available: {formatWeight(parseFloat(item.inventory.availableWeight || '0'), weightLabel).formattedString}
            </div>
            <div className="text-muted-foreground">
-             Reserved: {formatWeightAuto(parseFloat(item.inventory.reservedWeight || '0')).formattedString}
+             Reserved: {formatWeight(parseFloat(item.inventory.reservedWeight || '0'), weightLabel).formattedString}
            </div>
          </div>
       )

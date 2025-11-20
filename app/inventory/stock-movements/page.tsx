@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { convertFromGrams } from '@/utils/weightUtils';
+import { convertFromGrams, formatWeight } from '@/utils/weightUtils';
+import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 
 interface StockMovement {
   id: string;
@@ -27,6 +28,7 @@ interface StockMovement {
 }
 
 export default function StockMovements() {
+  const { weightLabel } = useWeightLabel();
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [filteredMovements, setFilteredMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
