@@ -188,7 +188,7 @@ export default function StockMovements() {
   };
 
   const formatWeightDisplay = (weight: number | string | undefined) => {
-    // Use the weight label from settings to display weight consistently
+    // Use the weight label from settings to display weight consistently s
     // Convert to number to handle database Decimal types or strings
     const numericWeight = typeof weight === 'number' ? weight : parseFloat(String(weight || '0'));
     return formatWeight(numericWeight, weightLabel).formattedString;
