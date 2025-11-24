@@ -112,7 +112,7 @@ export default function StockMovements() {
       if (response.ok) {
         const result = await response.json();
         alert(result.message + (result.warning ? `\n\nWarning: ${result.warning}` : ''));
-        
+
         // Refresh the movements list
         await fetchStockMovements();
         setSelectedMovements(new Set());
@@ -148,12 +148,12 @@ export default function StockMovements() {
 
     // Date range filter
     if (dateRange.startDate) {
-      filtered = filtered.filter(movement => 
+      filtered = filtered.filter(movement =>
         new Date(movement.createdAt) >= new Date(dateRange.startDate)
       );
     }
     if (dateRange.endDate) {
-      filtered = filtered.filter(movement => 
+      filtered = filtered.filter(movement =>
         new Date(movement.createdAt) <= new Date(dateRange.endDate)
       );
     }
@@ -222,14 +222,14 @@ export default function StockMovements() {
           >
             {loading ? 'Refreshing...' : '🔄 Refresh'}
           </button>
-          <Link 
-            href="/inventory/stock-movements/add" 
+          <Link
+            href="/inventory/stock-movements/add"
             className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
           >
             ➕ Add Stock Movement
           </Link>
-          <Link 
-            href="/inventory" 
+          <Link
+            href="/inventory"
             className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
           >
             ← Back to Inventory
@@ -308,7 +308,7 @@ export default function StockMovements() {
             <input
               type="date"
               value={dateRange.startDate}
-              onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
+              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -317,13 +317,13 @@ export default function StockMovements() {
             <input
               type="date"
               value={dateRange.endDate}
-              onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
+              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
       </div>
-      
+
       {/* Movements Table */}
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -341,6 +341,7 @@ export default function StockMovements() {
                 <th className="border-b p-3 text-left font-semibold">Date</th>
                 <th className="border-b p-3 text-left font-semibold">Product</th>
                 <th className="border-b p-3 text-left font-semibold">Variant</th>
+                <th className="border-b p-3 text-left font-semibold">Stock Type</th>
                 <th className="border-b p-3 text-left font-semibold">Type</th>
                 <th className="border-b p-3 text-left font-semibold">Quantity/Weight</th>
                 <th className="border-b p-3 text-left font-semibold">Reason</th>
@@ -371,24 +372,30 @@ export default function StockMovements() {
                     </td>
                     <td className="border-b p-3">{movement.variantTitle || 'Base Product'}</td>
                     <td className="border-b p-3">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${movement.stockManagementType === 'weight'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-gray-100 text-gray-800'
+                        }`}>
+                        {movement.stockManagementType === 'weight' ? '⚖️ Weight' : '📦 Quantity'}
+                      </span>
+                    </td>
+                    <td className="border-b p-3">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getMovementTypeColor(movement.movementType)}`}>
                         {getMovementTypeIcon(movement.movementType)} {movement.movementType.toUpperCase()}
                       </span>
                     </td>
                     <td className="border-b p-3">
                       <div className="space-y-1">
-                        <span className={`font-semibold ${
-                          movement.movementType === 'in' ? 'text-green-600' : 
-                          movement.movementType === 'out' ? 'text-red-600' : 'text-blue-600'
-                        }`}>
+                        <span className={`font-semibold ${movement.movementType === 'in' ? 'text-green-600' :
+                            movement.movementType === 'out' ? 'text-red-600' : 'text-blue-600'
+                          }`}>
                           {movement.movementType === 'in' ? '+' : movement.movementType === 'out' ? '-' : '±'}
                           {movement.quantity}
                         </span>
                         {movement.weightQuantity && movement.stockManagementType === 'weight' && (
-                          <div className={`text-sm ${
-                            movement.movementType === 'in' ? 'text-green-500' : 
-                            movement.movementType === 'out' ? 'text-red-500' : 'text-blue-500'
-                          }`}>
+                          <div className={`text-sm ${movement.movementType === 'in' ? 'text-green-500' :
+                              movement.movementType === 'out' ? 'text-red-500' : 'text-blue-500'
+                            }`}>
                             {movement.movementType === 'in' ? '+' : movement.movementType === 'out' ? '-' : '±'}
                             {formatWeightDisplay(movement.weightQuantity)}
                           </div>
@@ -402,9 +409,9 @@ export default function StockMovements() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="border-b p-8 text-center text-gray-500">
+                  <td colSpan={10} className="border-b p-8 text-center text-gray-500">
                     {searchTerm || movementFilter !== 'all' || dateRange.startDate || dateRange.endDate
-                      ? 'No stock movements match your filters' 
+                      ? 'No stock movements match your filters'
                       : 'No stock movements recorded yet'
                     }
                   </td>

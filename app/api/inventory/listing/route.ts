@@ -32,21 +32,21 @@ export async function GET() {
     const inventoryListing = allProducts.map((productItem) => {
       const product = productItem.product;
       const category = productItem.category;
-      
+
       if (product.productType === 'variable') {
         // Get variants for this product
         const productVariants = allVariants.filter((v) => v.variant.productId === product.id);
-        
+
         const variants = productVariants.map((variantItem) => {
           const variant = variantItem.variant;
-          const variantInventory = allInventory.find((inv) => 
+          const variantInventory = allInventory.find((inv) =>
             inv.inventory.variantId === variant.id
           );
-          
+
           const currentStock = variantInventory?.inventory.quantity || 0;
           const reservedStock = variantInventory?.inventory.reservedQuantity || 0;
           const availableStock = variantInventory?.inventory.availableQuantity || currentStock - reservedStock;
-          
+
           return {
             variantId: variant.id,
             variantTitle: variant.title,
@@ -65,13 +65,13 @@ export async function GET() {
           productName: product.name,
           productSku: product.sku || '',
           productType: product.productType || 'simple',
-          categoryName: category?.name || 'Uncategorized',
+          categoryName: category?.name || '',
           isActive: product.isActive,
           variants,
         };
       } else {
         // Simple product
-        const productInventory = allInventory.find((inv) => 
+        const productInventory = allInventory.find((inv) =>
           inv.inventory.productId === product.id && !inv.inventory.variantId
         );
 
@@ -84,7 +84,7 @@ export async function GET() {
           productName: product.name,
           productSku: product.sku || '',
           productType: product.productType || 'simple',
-          categoryName: category?.name || 'Uncategorized',
+          categoryName: category?.name || '',
           isActive: product.isActive,
           simpleStock: {
             currentStock,

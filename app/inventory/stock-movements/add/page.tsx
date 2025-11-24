@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import CurrencySymbol from '../../../components/CurrencySymbol';
 import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
-import { 
-  formatWeightAuto, 
-  isWeightBasedProduct, 
+import {
+  formatWeightAuto,
+  isWeightBasedProduct,
   convertToGrams,
   parseWeightInput,
   getWeightUnits,
@@ -21,7 +21,7 @@ export default function AddStockMovement() {
     variantId: '',
     movementType: 'in',
     quantity: 0,
-    reason: '',
+    reason: 'Purchase Order',
     location: '',
     reference: '',
     notes: '',
@@ -31,7 +31,7 @@ export default function AddStockMovement() {
     weightQuantity: '',
     weightUnit: 'g' as WeightUnit // Will be synced with weightLabel from context
   });
-  
+
   const [products, setProducts] = useState([]);
   const [variants, setVariants] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -74,6 +74,14 @@ export default function AddStockMovement() {
       'Other'
     ]
   };
+
+  // Update reason when movement type changes
+  useEffect(() => {
+    const reasons = predefinedReasons[formData.movementType as keyof typeof predefinedReasons];
+    if (reasons && reasons.length > 0) {
+      setFormData(prev => ({ ...prev, reason: reasons[0] }));
+    }
+  }, [formData.movementType]);
 
   useEffect(() => {
     fetchProducts();
@@ -126,7 +134,7 @@ export default function AddStockMovement() {
     try {
       const response = await fetch('/api/inventory');
       const data = await response.json();
-      
+
       // Find current inventory for the selected product/variant
       const inventory = data.find((item: any) => {
         if (formData.variantId) {
@@ -135,7 +143,7 @@ export default function AddStockMovement() {
           return item.inventory.productId === formData.productId && !item.inventory.variantId;
         }
       });
-      
+
       setCurrentInventory(inventory);
     } catch (err) {
       console.error('Error fetching current inventory:', err);
@@ -166,7 +174,7 @@ export default function AddStockMovement() {
 
   const calculateNewQuantity = () => {
     if (!currentInventory) return formData.quantity;
-    
+
     const current = currentInventory.inventory.quantity || 0;
     switch (formData.movementType) {
       case 'in':
@@ -182,10 +190,10 @@ export default function AddStockMovement() {
 
   const calculateNewWeight = () => {
     if (!currentInventory) return parseFloat(formData.weightQuantity || '0');
-    
+
     const currentWeight = parseFloat(currentInventory.inventory.weightQuantity || '0');
     const movementWeight = convertToGrams(parseFloat(formData.weightQuantity || '0'), formData.weightUnit);
-    
+
     switch (formData.movementType) {
       case 'in':
         return currentWeight + movementWeight;
@@ -217,7 +225,7 @@ export default function AddStockMovement() {
     }
 
     const isWeightBased = isSelectedProductWeightBased();
-    
+
     if (isWeightBased) {
       if (!formData.weightQuantity || parseFloat(formData.weightQuantity) <= 0) {
         setError('Weight quantity must be greater than 0');
@@ -307,13 +315,13 @@ export default function AddStockMovement() {
           ← Back to Stock Movements
         </button>
       </div>
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           {error}
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Form */}
         <div className="lg:col-span-2">
@@ -325,11 +333,10 @@ export default function AddStockMovement() {
                 {movementTypes.map((type) => (
                   <label
                     key={type.value}
-                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                      formData.movementType === type.value
+                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.movementType === type.value
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-300 hover:border-gray-400'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"
@@ -417,7 +424,7 @@ export default function AddStockMovement() {
                     <div>
                       <span className="text-gray-500">Price:</span>
                       <span className="ml-2 font-medium">
-                        {isSelectedProductWeightBased() 
+                        {isSelectedProductWeightBased()
                           ? selectedProduct.product.baseWeightUnit === 'kg'
                             ? `${parseFloat(selectedProduct.product.pricePerUnit || '0').toFixed(2)}/kg`
                             : `${(parseFloat(selectedProduct.product.pricePerUnit || '0') * 1000).toFixed(2)}/kg`
@@ -433,7 +440,7 @@ export default function AddStockMovement() {
                       <span className="text-gray-500">Current Stock:</span>
                       <span className="ml-2 font-medium">
                         {currentInventory ? (
-                          isSelectedProductWeightBased() 
+                          isSelectedProductWeightBased()
                             ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
                             : currentInventory.inventory.quantity
                         ) : 'No inventory record'}
@@ -457,7 +464,7 @@ export default function AddStockMovement() {
                       <input
                         type="number"
                         value={formData.weightQuantity}
-                        onChange={(e) => setFormData({...formData, weightQuantity: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, weightQuantity: e.target.value })}
                         className="flex-1 p-2 border rounded focus:border-blue-500 focus:outline-none"
                         min="0"
                         step={weightLabel === 'g' ? '1' : '0.01'}
@@ -505,7 +512,7 @@ export default function AddStockMovement() {
                     className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
                     required
                   >
-                    <option value="">Select a reason...</option>
+
                     {predefinedReasons[formData.movementType as keyof typeof predefinedReasons].map((reason) => (
                       <option key={reason} value={reason}>
                         {reason}
@@ -597,7 +604,7 @@ export default function AddStockMovement() {
                 placeholder="Additional notes about this stock movement..."
               />
             </div>
-            
+
             <div className="flex gap-4">
               <button
                 type="submit"
@@ -621,13 +628,13 @@ export default function AddStockMovement() {
         <div className="lg:col-span-1">
           <div className="bg-white border rounded-lg p-6 sticky top-4">
             <h3 className="text-lg font-semibold mb-4">📊 Impact Summary</h3>
-            
+
             <div className="space-y-4">
               {currentInventory && (
                 <div className="p-3 bg-gray-50 rounded">
                   <div className="text-sm text-gray-600">Current Stock</div>
                   <div className="text-2xl font-bold text-gray-800">
-                    {isWeightBased 
+                    {isWeightBased
                       ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
                       : currentInventory.inventory.quantity
                     }
@@ -637,13 +644,12 @@ export default function AddStockMovement() {
 
               <div className="p-3 bg-blue-50 rounded">
                 <div className="text-sm text-gray-600">Movement {isWeightBased ? 'Weight' : 'Quantity'}</div>
-                <div className={`text-2xl font-bold ${
-                  formData.movementType === 'in' ? 'text-green-800' : 
-                  formData.movementType === 'out' ? 'text-red-800' : 'text-blue-800'
-                }`}>
-                  {formData.movementType === 'in' ? '+' : 
-                   formData.movementType === 'out' ? '-' : '±'}
-                  {isWeightBased 
+                <div className={`text-2xl font-bold ${formData.movementType === 'in' ? 'text-green-800' :
+                    formData.movementType === 'out' ? 'text-red-800' : 'text-blue-800'
+                  }`}>
+                  {formData.movementType === 'in' ? '+' :
+                    formData.movementType === 'out' ? '-' : '±'}
+                  {isWeightBased
                     ? formatWeightAuto(parseFloat(formData.weightQuantity || '0'), weightLabel).formattedString
                     : formData.quantity
                   }
@@ -653,10 +659,9 @@ export default function AddStockMovement() {
               {currentInventory && (
                 <div className="p-3 bg-green-50 rounded">
                   <div className="text-sm text-gray-600">New Stock Level</div>
-                  <div className={`text-2xl font-bold ${
-                    (isWeightBased ? newWeight : newQuantity) < 0 ? 'text-red-800' : 'text-green-800'
-                  }`}>
-                    {isWeightBased 
+                  <div className={`text-2xl font-bold ${(isWeightBased ? newWeight : newQuantity) < 0 ? 'text-red-800' : 'text-green-800'
+                    }`}>
+                    {isWeightBased
                       ? formatWeightAuto(newWeight, weightLabel).formattedString
                       : newQuantity
                     }

@@ -36,13 +36,13 @@ export default function InventoryReports() {
 
     inventory.forEach((item: any) => {
       const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
-      
+
       if (isWeightBased) {
         // Weight-based product analysis
         const availableWeight = parseFloat(item.inventory.availableWeight || '0');
         const reorderPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
         const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
-        
+
         if (availableWeight <= 0) {
           outOfStock++;
         } else if (availableWeight <= reorderPoint) {
@@ -50,7 +50,7 @@ export default function InventoryReports() {
         } else {
           inStock++;
         }
-        
+
         // Calculate value for weight-based products
         const pricePerGram = parseFloat(item.product?.pricePerUnit || '0');
         if (item.product?.baseWeightUnit === 'kg') {
@@ -60,14 +60,14 @@ export default function InventoryReports() {
           // Already per gram
           totalValue += totalWeight * pricePerGram;
         }
-        
+
         totalStockLevel += totalWeight;
       } else {
         // Quantity-based product analysis
         const availableQty = item.inventory.availableQuantity || 0;
         const reorderPoint = item.inventory.reorderPoint || 0;
         const totalQty = item.inventory.quantity || 0;
-        
+
         if (availableQty <= 0) {
           outOfStock++;
         } else if (availableQty <= reorderPoint) {
@@ -75,11 +75,11 @@ export default function InventoryReports() {
         } else {
           inStock++;
         }
-        
+
         // Calculate value for quantity-based products
         const price = parseFloat(item.product?.price || '0');
         totalValue += totalQty * price;
-        
+
         totalStockLevel += totalQty;
       }
     });
@@ -104,7 +104,7 @@ export default function InventoryReports() {
       .map((item: any) => {
         const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
         let value = 0;
-        
+
         if (isWeightBased) {
           const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
           const pricePerGram = parseFloat(item.product?.pricePerUnit || '0');
@@ -118,7 +118,7 @@ export default function InventoryReports() {
           const price = parseFloat(item.product?.price || '0');
           value = quantity * price;
         }
-        
+
         return { ...item, calculatedValue: value };
       })
       .sort((a: any, b: any) => b.calculatedValue - a.calculatedValue)
@@ -128,7 +128,7 @@ export default function InventoryReports() {
   const getLowStockItems = () => {
     return inventory.filter((item: any) => {
       const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
-      
+
       if (isWeightBased) {
         const availableWeight = parseFloat(item.inventory.availableWeight || '0');
         const reorderPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
@@ -143,7 +143,7 @@ export default function InventoryReports() {
 
   const getLocationAnalytics = () => {
     const locationMap = new Map();
-    
+
     inventory.forEach((item: any) => {
       const location = item.inventory.location || 'Main Warehouse';
       if (!locationMap.has(location)) {
@@ -155,16 +155,16 @@ export default function InventoryReports() {
           totalValue: 0
         });
       }
-      
+
       const locationData = locationMap.get(location);
       locationData.totalItems += 1;
-      
+
       const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
-      
+
       if (isWeightBased) {
         const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
         locationData.totalWeight += totalWeight;
-        
+
         const pricePerGram = parseFloat(item.product?.pricePerUnit || '0');
         if (item.product?.baseWeightUnit === 'kg') {
           locationData.totalValue += totalWeight * (pricePerGram / 1000);
@@ -174,7 +174,7 @@ export default function InventoryReports() {
       } else {
         const quantity = item.inventory.quantity || 0;
         locationData.totalQuantity += quantity;
-        
+
         const price = parseFloat(item.product?.price || '0');
         locationData.totalValue += quantity * price;
       }
@@ -195,13 +195,13 @@ export default function InventoryReports() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">📊 Inventory Reports</h1>
         <div className="flex gap-2">
-          <Link 
-            href="/inventory" 
+          <Link
+            href="/inventory"
             className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
           >
             ← Back to Inventory
           </Link>
-          <button 
+          <button
             onClick={() => window.print()}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
@@ -249,8 +249,8 @@ export default function InventoryReports() {
               </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-green-500 h-2 rounded-full" 
+              <div
+                className="bg-green-500 h-2 rounded-full"
                 style={{ width: `${analytics.inStockPercentage}%` }}
               ></div>
             </div>
@@ -266,8 +266,8 @@ export default function InventoryReports() {
               </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-yellow-500 h-2 rounded-full" 
+              <div
+                className="bg-yellow-500 h-2 rounded-full"
                 style={{ width: `${analytics.lowStockPercentage}%` }}
               ></div>
             </div>
@@ -283,8 +283,8 @@ export default function InventoryReports() {
               </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-red-500 h-2 rounded-full" 
+              <div
+                className="bg-red-500 h-2 rounded-full"
                 style={{ width: `${analytics.outOfStockPercentage}%` }}
               ></div>
             </div>
@@ -322,11 +322,11 @@ export default function InventoryReports() {
             {topProducts.slice(0, 8).map((item: any, index) => {
               const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
               let stockDisplay = '';
-              
+
               if (isWeightBased) {
                 const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
                 const pricePerGram = parseFloat(item.product?.pricePerUnit || '0');
-                const priceDisplay = item.product?.baseWeightUnit === 'kg' 
+                const priceDisplay = item.product?.baseWeightUnit === 'kg'
                   ? `${(pricePerGram).toFixed(2)}/kg`
                   : `${(pricePerGram * 1000).toFixed(2)}/kg`;
                 stockDisplay = `${formatWeightAuto(totalWeight).formattedString} × <CurrencySymbol />${priceDisplay}`;
@@ -335,7 +335,7 @@ export default function InventoryReports() {
                 const price = parseFloat(item.product?.price || '0');
                 stockDisplay = `${quantity} units × <CurrencySymbol />${price.toFixed(2)}`;
               }
-              
+
               return (
                 <div key={index} className="flex justify-between items-center">
                   <div className="flex-1">
@@ -360,7 +360,7 @@ export default function InventoryReports() {
                 const isWeightBased = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
                 let currentStock = '';
                 let reorderPoint = '';
-                
+
                 if (isWeightBased) {
                   const availableWeight = parseFloat(item.inventory.availableWeight || '0');
                   const reorderWeightPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
@@ -370,7 +370,7 @@ export default function InventoryReports() {
                   currentStock = `${item.inventory.quantity || 0} units`;
                   reorderPoint = `${item.inventory.reorderPoint || 0} units`;
                 }
-                
+
                 return (
                   <div key={index} className="flex justify-between items-center p-3 bg-red-50 rounded">
                     <div>
@@ -404,41 +404,7 @@ export default function InventoryReports() {
       </div>
 
       {/* Action Items */}
-      <div className="bg-white border rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">🎯 Recommended Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {analytics.outOfStock > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="font-semibold text-red-800 mb-2">
-                🚨 {analytics.outOfStock} Out of Stock Items
-              </div>
-              <div className="text-sm text-red-700">
-                Immediate restocking required to avoid lost sales.
-              </div>
-            </div>
-          )}
-          
-          {lowStockItems.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="font-semibold text-yellow-800 mb-2">
-                ⚠️ {lowStockItems.length} Low Stock Items
-              </div>
-              <div className="text-sm text-yellow-700">
-                Place reorder to maintain optimal stock levels.
-              </div>
-            </div>
-          )}
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="font-semibold text-blue-800 mb-2">
-              📈 Inventory Health: {((analytics.inStock / analytics.total) * 100).toFixed(0)}%
-            </div>
-            <div className="text-sm text-blue-700">
-              {analytics.inStockPercentage > 70 ? 'Good inventory levels maintained.' : 'Consider reviewing reorder points.'}
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 } 

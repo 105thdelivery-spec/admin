@@ -67,22 +67,22 @@ export default function ProductAnalytics() {
   const [endDate, setEndDate] = useState('');
 
   const dateRanges = {
-    today: { 
+    today: {
       label: 'Today',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0]
     },
-    week: { 
+    week: {
       label: 'Last 7 Days',
       startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0]
     },
-    month: { 
+    month: {
       label: 'Last 30 Days',
       startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0]
     },
-    quarter: { 
+    quarter: {
       label: 'Last 90 Days',
       startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0]
@@ -116,7 +116,7 @@ export default function ProductAnalytics() {
       const salesData = await salesResponse.json();
       const productsData = await productsResponse.json();
       const categoriesData = await categoriesResponse.json();
-      
+
       // Transform data into product analytics format
       const productAnalytics: ProductAnalyticsData = {
         summary: {
@@ -172,7 +172,7 @@ export default function ProductAnalytics() {
           id: product.id,
           name: product.name,
           price: parseFloat(product.price || '0'),
-          categoryName: product.categoryName || 'Uncategorized',
+          categoryName: product.categoryName || '',
           createdAt: product.createdAt,
           status: product.isActive ? 'active' : 'inactive'
         }))
@@ -188,24 +188,24 @@ export default function ProductAnalytics() {
 
   const handleExportPDF = async () => {
     if (!data) return;
-    
+
     try {
-       // Dynamic import to avoid build issues
+      // Dynamic import to avoid build issues
       const { jsPDF } = await import('jspdf');
-      
+
       const doc = new jsPDF();
-      
+
       // Title
       doc.setFontSize(20);
       doc.text('Product Performance Report', 20, 20);
-      
+
       // Date range
       if (startDate || endDate) {
         doc.setFontSize(12);
         const dateText = `Period: ${startDate || 'All time'} to ${endDate || 'Present'}`;
         doc.text(dateText, 20, 30);
       }
-      
+
       // Summary
       doc.setFontSize(14);
       doc.text('Summary', 20, 45);
@@ -215,11 +215,11 @@ export default function ProductAnalytics() {
       doc.text(`Average Product Price: $${data.summary.averageProductPrice.toFixed(2)}`, 20, 69);
       doc.text(`Total Product Value: $${data.summary.totalProductValue.toFixed(2)}`, 20, 76);
       doc.text(`Out of Stock: ${data.summary.outOfStockProducts}`, 20, 83);
-      
+
       // Top Products (simplified without table plugin)
       doc.setFontSize(14);
       doc.text('Top Selling Products', 20, 95);
-      
+
       let yPosition = 105;
       data.topSellingProducts.slice(0, 10).forEach((product, index) => {
         doc.setFontSize(8);
@@ -227,12 +227,12 @@ export default function ProductAnalytics() {
         const productText = `${productName} | Sold: ${product.totalQuantitySold} | Revenue: $${product.totalRevenue.toFixed(2)} | Margin: ${product.profitMargin?.toFixed(1) || '0'}%`;
         doc.text(productText, 20, yPosition);
         yPosition += 5;
-        
+
         if (yPosition > 270) { // Prevent overflow
           return;
         }
       });
-      
+
       doc.save(`product-performance-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -304,7 +304,7 @@ export default function ProductAnalytics() {
           onEndDateChange={setEndDate}
           onClearFilter={clearFilters}
         />
-        
+
         {/* Preset Date Buttons */}
         <div className="flex flex-wrap gap-2 mt-4">
           {Object.entries(dateRanges).map(([key, range]) => (
@@ -394,11 +394,10 @@ export default function ProductAnalytics() {
                         <CurrencySymbol />{product.averagePrice.toFixed(2)}
                       </td>
                       <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-sm ${
-                          (product.profitMargin || 0) >= 30 ? 'bg-green-100 text-green-800' :
-                          (product.profitMargin || 0) >= 15 ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-sm ${(product.profitMargin || 0) >= 30 ? 'bg-green-100 text-green-800' :
+                            (product.profitMargin || 0) >= 15 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                          }`}>
                           {product.profitMargin?.toFixed(1) || '0'}%
                         </span>
                       </td>

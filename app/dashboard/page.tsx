@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  CalendarIcon, 
-  TrendingUpIcon, 
-  TrendingDownIcon, 
-  UsersIcon, 
-  PackageIcon, 
-  FolderIcon, 
-  ShoppingCartIcon, 
+import {
+  CalendarIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
+  UsersIcon,
+  PackageIcon,
+  FolderIcon,
+  ShoppingCartIcon,
   UserCheckIcon,
   DollarSignIcon,
   BarChart3Icon,
@@ -72,12 +72,12 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError('');
-      
+
       // Build query parameters
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-      
+
       const response = await fetch(`/api/dashboard/stats?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard statistics');
@@ -106,7 +106,7 @@ export default function Dashboard() {
   const setPresetDates = (preset: string) => {
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    
+
     switch (preset) {
       case 'today':
         setStartDate(startOfToday.toISOString().split('T')[0]);
@@ -128,14 +128,14 @@ export default function Dashboard() {
     setTimeout(() => fetchStats(), 100);
   };
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
-    description, 
-    trend, 
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    description,
+    trend,
     onClick,
-    loading: cardLoading 
+    loading: cardLoading
   }: {
     title: string;
     value: string | number;
@@ -145,7 +145,7 @@ export default function Dashboard() {
     onClick?: () => void;
     loading?: boolean;
   }) => (
-    <Card 
+    <Card
       className={`transition-all duration-200 hover:shadow-lg ${onClick ? 'cursor-pointer hover:scale-105' : ''}`}
       onClick={onClick}
     >
@@ -163,9 +163,8 @@ export default function Dashboard() {
           {description}
         </p>
         {trend && !cardLoading && (
-          <div className={`flex items-center mt-2 text-xs ${
-            trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
-          }`}>
+          <div className={`flex items-center mt-2 text-xs ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
+            }`}>
             {trend === 'up' && <TrendingUpIcon className="h-3 w-3 mr-1" />}
             {trend === 'down' && <TrendingDownIcon className="h-3 w-3 mr-1" />}
             {trend === 'neutral' && <TargetIcon className="h-3 w-3 mr-1" />}
@@ -175,14 +174,14 @@ export default function Dashboard() {
     </Card>
   );
 
-  const FinancialCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
-    description, 
+  const FinancialCard = ({
+    title,
+    value,
+    icon: Icon,
+    description,
     color = "default",
     onClick,
-    loading: cardLoading 
+    loading: cardLoading
   }: {
     title: string;
     value: React.ReactNode;
@@ -209,10 +208,9 @@ export default function Dashboard() {
     };
 
     return (
-      <Card 
-        className={`transition-all duration-200 hover:shadow-lg ${colorClasses[color]} ${
-          onClick ? 'cursor-pointer hover:scale-105' : ''
-        }`}
+      <Card
+        className={`transition-all duration-200 hover:shadow-lg ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:scale-105' : ''
+          }`}
         onClick={onClick}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -279,7 +277,7 @@ export default function Dashboard() {
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">End Date</label>
               <input
@@ -289,13 +287,13 @@ export default function Dashboard() {
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
-            
+
             <div className="flex items-end">
               <Button onClick={handleDateFilterChange} className="w-full">
                 Apply Filter
               </Button>
             </div>
-            
+
             <div className="flex items-end">
               <Button onClick={clearFilters} variant="outline" className="w-full">
                 Clear Filters
@@ -342,7 +340,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Error Display */}
       {error && (
         <Card className="border-red-200 bg-red-50">
@@ -355,7 +353,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Main Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard
@@ -476,7 +474,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button 
+              <Button
                 onClick={() => router.push('/products/add')}
                 variant="outline"
                 className="h-auto p-4 justify-start gap-3"
@@ -489,7 +487,7 @@ export default function Dashboard() {
                   <div className="text-sm text-muted-foreground">Create new service</div>
                 </div>
               </Button>
-              <Button 
+              <Button
                 onClick={() => router.push('/orders/add')}
                 variant="outline"
                 className="h-auto p-4 justify-start gap-3"
@@ -502,7 +500,7 @@ export default function Dashboard() {
                   <div className="text-sm text-muted-foreground">Create order</div>
                 </div>
               </Button>
-              <Button 
+              <Button
                 onClick={() => router.push('/users/add')}
                 variant="outline"
                 className="h-auto p-4 justify-start gap-3"
@@ -515,7 +513,7 @@ export default function Dashboard() {
                   <div className="text-sm text-muted-foreground">New customer</div>
                 </div>
               </Button>
-              <Button 
+              <Button
                 onClick={() => router.push('/categories/add')}
                 variant="outline"
                 className="h-auto p-4 justify-start gap-3"
@@ -532,37 +530,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* System Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-            <CardDescription>
-              Current system health and performance
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Database</span>
-              <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
-                ✅ Healthy
-              </Badge>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">API Status</span>
-              <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
-                ✅ Online
-              </Badge>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Storage</span>
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                ⚠️ 75% Used
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
     </div>
   );

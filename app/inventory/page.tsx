@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  formatWeightAuto, 
-  isWeightBasedProduct, 
+import {
+  formatWeightAuto,
+  isWeightBasedProduct,
   getWeightStockStatus,
-  formatWeight 
+  formatWeight
 } from '@/utils/weightUtils';
 import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
 import CurrencySymbol from '../components/CurrencySymbol';
@@ -15,16 +15,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { 
-  PlusIcon, 
-  MoreVerticalIcon, 
-  EditIcon, 
+import {
+  PlusIcon,
+  MoreVerticalIcon,
+  EditIcon,
   TrashIcon,
   RefreshCwIcon,
   PackageIcon,
@@ -75,15 +75,21 @@ export default function InventoryList() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [stockManagementEnabled, setStockManagementEnabled] = useState(true);
   const [updatingStockSetting, setUpdatingStockSetting] = useState(false);
-  const [activeTab, setActiveTab] = useState('quantity'); // 'quantity' or 'weight'
+
 
   const fetchInventory = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/inventory');
       const data = await res.json();
-      setInventory(data);
-      setFilteredInventory(data);
+      if (Array.isArray(data)) {
+        setInventory(data);
+        setFilteredInventory(data);
+      } else {
+        console.error('Inventory data is not an array:', data);
+        setInventory([]);
+        setFilteredInventory([]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -109,14 +115,14 @@ export default function InventoryList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !stockManagementEnabled })
       });
-      
+
       if (!res.ok) {
         throw new Error('Failed to update stock management setting');
       }
-      
+
       const data = await res.json();
       setStockManagementEnabled(data.stockManagementEnabled);
-      
+
       alert(data.message);
     } catch (err: any) {
       alert('Error: ' + err.message);
@@ -132,20 +138,13 @@ export default function InventoryList() {
 
   useEffect(() => {
     filterInventory();
-  }, [inventory, searchTerm, stockFilter, activeTab]);
+  }, [inventory, searchTerm, stockFilter]);
 
   const filterInventory = () => {
     let filtered = inventory;
 
-    // Filter by tab (stock management type)
-    filtered = filtered.filter((item: InventoryItem) => {
-      const stockManagementType = item.product?.stockManagementType || 'quantity';
-      if (activeTab === 'weight') {
-        return isWeightBasedProduct(stockManagementType);
-      } else {
-        return !isWeightBasedProduct(stockManagementType);
-      }
-    });
+    // Filter by tab (stock management type) - REMOVED
+
 
     // Search filter
     if (searchTerm) {
@@ -160,7 +159,7 @@ export default function InventoryList() {
     if (stockFilter !== 'all') {
       filtered = filtered.filter((item: InventoryItem) => {
         const stockManagementType = item.product?.stockManagementType || 'quantity';
-        
+
         if (stockFilter === 'soldout') {
           // Sold out items are those with zero total stock
           if (isWeightBasedProduct(stockManagementType)) {
@@ -171,12 +170,12 @@ export default function InventoryList() {
           }
         } else {
           let stockStatus;
-          
+
           if (isWeightBasedProduct(stockManagementType)) {
             const availableWeight = parseFloat(item.inventory.availableWeight || '0');
             const reorderPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
             const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
-            
+
             if (totalWeight <= 0) {
               stockStatus = { status: 'Sold Out' };
             } else if (availableWeight <= 0) {
@@ -186,7 +185,7 @@ export default function InventoryList() {
             }
           } else {
             const availableQuantity = item.inventory.availableQuantity || item.inventory.quantity;
-            
+
             if (item.inventory.quantity <= 0) {
               stockStatus = { status: 'Sold Out' };
             } else if (availableQuantity <= 0) {
@@ -195,7 +194,7 @@ export default function InventoryList() {
               stockStatus = getStockStatus(item.inventory.quantity, item.inventory.reorderPoint);
             }
           }
-          
+
           return stockStatus.status.toLowerCase().replace(' ', '') === stockFilter;
         }
       });
@@ -226,8 +225,8 @@ export default function InventoryList() {
   };
 
   const handleSelectItem = (itemId: string) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId) 
+    setSelectedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -258,14 +257,14 @@ export default function InventoryList() {
     return filteredInventory.reduce((total: number, item: InventoryItem) => {
       const stockManagementType = item.product?.stockManagementType || 'quantity';
       const isWeightBased = isWeightBasedProduct(stockManagementType);
-      
+
       let itemValue = 0;
       if (isWeightBased) {
         // Calculate value based on weight and price per unit
         const pricePerUnit = parseFloat(item.product?.pricePerUnit || '0');
         const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
         const baseWeightUnit = item.product?.baseWeightUnit || 'grams';
-        
+
         // Convert price to per gram if stored per kg
         const pricePerGram = baseWeightUnit === 'kg' ? pricePerUnit / 1000 : pricePerUnit;
         itemValue = totalWeight * pricePerGram;
@@ -273,12 +272,15 @@ export default function InventoryList() {
         const productPrice = parseFloat(item.product?.price || '0');
         itemValue = item.inventory.quantity * productPrice;
       }
-      
+
       return total + itemValue;
     }, 0);
   };
 
   const getStats = () => {
+    if (!Array.isArray(filteredInventory)) {
+      return { totalItems: 0, lowStockItems: 0, outOfStockItems: 0, soldOutItems: 0, inStockItems: 0, totalValue: 0 };
+    }
     const totalItems = filteredInventory.length;
     const lowStockItems = filteredInventory.filter((item: InventoryItem) => {
       const stockManagementType = item.product?.stockManagementType || 'quantity';
@@ -292,7 +294,7 @@ export default function InventoryList() {
         return status.status === 'Low Stock';
       }
     }).length;
-    
+
     const outOfStockItems = filteredInventory.filter((item: InventoryItem) => {
       const stockManagementType = item.product?.stockManagementType || 'quantity';
       if (isWeightBasedProduct(stockManagementType)) {
@@ -325,8 +327,8 @@ export default function InventoryList() {
 
   const stats = getStats();
 
-  // Define columns for weight-based inventory
-  const weightColumns = [
+  // Unified columns for inventory
+  const columns = [
     {
       key: 'select',
       title: '',
@@ -356,147 +358,83 @@ export default function InventoryList() {
       )
     },
     {
-      key: 'weight',
-      title: 'Weight Stock',
-      render: (_: any, item: InventoryItem) => (
-                 <div className="text-sm">
-           <div className="font-medium">
-             Total: {formatWeight(parseFloat(item.inventory.weightQuantity || '0'), weightLabel).formattedString}
-           </div>
-           <div className="text-muted-foreground">
-             Available: {formatWeight(parseFloat(item.inventory.availableWeight || '0'), weightLabel).formattedString}
-           </div>
-           <div className="text-muted-foreground">
-             Reserved: {formatWeight(parseFloat(item.inventory.reservedWeight || '0'), weightLabel).formattedString}
-           </div>
-         </div>
-      )
-    },
-    {
-      key: 'status',
-      title: 'Status',
+      key: 'type',
+      title: 'Type',
       render: (_: any, item: InventoryItem) => {
-        const availableWeight = parseFloat(item.inventory.availableWeight || '0');
-        const reorderPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
-        const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
-        
-        let status;
-        if (totalWeight <= 0) {
-          status = { status: 'Sold Out' };
-        } else if (availableWeight <= 0) {
-          status = { status: 'Out of Stock' };
-        } else {
-          status = getWeightStockStatus(availableWeight, reorderPoint);
-        }
-        
+        const isWeight = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
         return (
-          <Badge 
-            variant={
-              status.status === 'In Stock' ? 'default' : 
-              status.status === 'Low Stock' ? 'secondary' : 
-              status.status === 'Sold Out' ? 'outline' : 'destructive'
-            }
-          >
-            {status.status}
+          <Badge variant="outline">
+            {isWeight ? 'Weight' : 'Quantity'}
           </Badge>
         );
       }
     },
     {
-      key: 'value',
-      title: 'Value',
+      key: 'stock',
+      title: 'Stock',
       render: (_: any, item: InventoryItem) => {
-        const pricePerUnit = parseFloat(item.product?.pricePerUnit || '0');
-        const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
-        const baseWeightUnit = item.product?.baseWeightUnit || 'grams';
-        const pricePerGram = baseWeightUnit === 'kg' ? pricePerUnit / 1000 : pricePerUnit;
-        const itemValue = totalWeight * pricePerGram;
-        
-        return (
-          <div className="font-medium">
-            <CurrencySymbol />{itemValue.toFixed(2)}
-          </div>
-        );
-      },
-      mobileHidden: true
+        const isWeight = isWeightBasedProduct(item.product?.stockManagementType || 'quantity');
+        if (isWeight) {
+          return (
+            <div className="text-sm">
+              <div className="font-medium">
+                Total: {formatWeight(parseFloat(item.inventory.weightQuantity || '0'), weightLabel).formattedString}
+              </div>
+              <div className="text-muted-foreground">
+                Available: {formatWeight(parseFloat(item.inventory.availableWeight || '0'), weightLabel).formattedString}
+              </div>
+              <div className="text-muted-foreground">
+                Reserved: {formatWeight(parseFloat(item.inventory.reservedWeight || '0'), weightLabel).formattedString}
+              </div>
+            </div>
+          );
+        } else {
+          return (
+            <div className="text-sm">
+              <div className="font-medium">Total: {item.inventory.quantity}</div>
+              <div className="text-muted-foreground">Available: {item.inventory.availableQuantity || item.inventory.quantity}</div>
+              <div className="text-muted-foreground">Reserved: {item.inventory.reservedQuantity || 0}</div>
+            </div>
+          );
+        }
+      }
     },
     {
-      key: 'lastRestock',
-      title: 'Last Restock',
-      render: (_: any, item: InventoryItem) => (
-        <div className="text-sm">
-          {item.inventory.lastRestock 
-            ? new Date(item.inventory.lastRestock).toLocaleDateString()
-            : 'Never'
-          }
-        </div>
-      ),
-      mobileHidden: true
-    }
-  ];
+      key: 'status',
+      title: 'Status',
+      render: (_: any, item: InventoryItem) => {
+        const stockManagementType = item.product?.stockManagementType || 'quantity';
+        let status;
 
-  // Define columns for quantity-based inventory
-  const quantityColumns = [
-    {
-      key: 'select',
-      title: '',
-      render: (_: any, item: InventoryItem) => (
-        <input
-          type="checkbox"
-          checked={selectedItems.includes(item.inventory.id)}
-          onChange={() => handleSelectItem(item.inventory.id)}
-          className="rounded"
-        />
-      ),
-      mobileHidden: true
-    },
-    {
-      key: 'product',
-      title: 'Product',
-      render: (_: any, item: InventoryItem) => (
-        <div>
-          <div className="font-medium">{item.product?.name || 'N/A'}</div>
-          {item.variant && (
-            <div className="text-sm text-muted-foreground">{item.variant.title}</div>
-          )}
-          {item.inventory.location && (
-            <div className="text-xs text-muted-foreground">📍 {item.inventory.location}</div>
-          )}
-        </div>
-      )
-    },
-    {
-      key: 'quantity',
-      title: 'Quantity Stock',
-      render: (_: any, item: InventoryItem) => (
-        <div className="text-sm">
-          <div className="font-medium">Total: {item.inventory.quantity}</div>
-          <div className="text-muted-foreground">Available: {item.inventory.availableQuantity || item.inventory.quantity}</div>
-          <div className="text-muted-foreground">Reserved: {item.inventory.reservedQuantity || 0}</div>
-        </div>
-      )
-    },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (_: any, item: InventoryItem) => {
-        const availableQuantity = item.inventory.availableQuantity || item.inventory.quantity;
-        
-        let status;
-        if (item.inventory.quantity <= 0) {
-          status = { status: 'Sold Out' };
-        } else if (availableQuantity <= 0) {
-          status = { status: 'Out of Stock' };
+        if (isWeightBasedProduct(stockManagementType)) {
+          const availableWeight = parseFloat(item.inventory.availableWeight || '0');
+          const reorderPoint = parseFloat(item.inventory.reorderWeightPoint || '0');
+          const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
+
+          if (totalWeight <= 0) {
+            status = { status: 'Sold Out' };
+          } else if (availableWeight <= 0) {
+            status = { status: 'Out of Stock' };
+          } else {
+            status = getWeightStockStatus(availableWeight, reorderPoint);
+          }
         } else {
-          status = getStockStatus(item.inventory.quantity, item.inventory.reorderPoint);
+          const availableQuantity = item.inventory.availableQuantity || item.inventory.quantity;
+          if (item.inventory.quantity <= 0) {
+            status = { status: 'Sold Out' };
+          } else if (availableQuantity <= 0) {
+            status = { status: 'Out of Stock' };
+          } else {
+            status = getStockStatus(item.inventory.quantity, item.inventory.reorderPoint);
+          }
         }
-        
+
         return (
-          <Badge 
+          <Badge
             variant={
-              status.status === 'In Stock' ? 'default' : 
-              status.status === 'Low Stock' ? 'secondary' : 
-              status.status === 'Sold Out' ? 'outline' : 'destructive'
+              status.status === 'In Stock' ? 'default' :
+                status.status === 'Low Stock' ? 'secondary' :
+                  status.status === 'Sold Out' ? 'outline' : 'destructive'
             }
           >
             {status.status}
@@ -508,9 +446,20 @@ export default function InventoryList() {
       key: 'value',
       title: 'Value',
       render: (_: any, item: InventoryItem) => {
-        const productPrice = parseFloat(item.product?.price || '0');
-        const itemValue = item.inventory.quantity * productPrice;
-        
+        const stockManagementType = item.product?.stockManagementType || 'quantity';
+        let itemValue = 0;
+
+        if (isWeightBasedProduct(stockManagementType)) {
+          const pricePerUnit = parseFloat(item.product?.pricePerUnit || '0');
+          const totalWeight = parseFloat(item.inventory.weightQuantity || '0');
+          const baseWeightUnit = item.product?.baseWeightUnit || 'grams';
+          const pricePerGram = baseWeightUnit === 'kg' ? pricePerUnit / 1000 : pricePerUnit;
+          itemValue = totalWeight * pricePerGram;
+        } else {
+          const productPrice = parseFloat(item.product?.price || '0');
+          itemValue = item.inventory.quantity * productPrice;
+        }
+
         return (
           <div className="font-medium">
             <CurrencySymbol />{itemValue.toFixed(2)}
@@ -520,19 +469,11 @@ export default function InventoryList() {
       mobileHidden: true
     },
     {
-      key: 'reorderPoint',
-      title: 'Reorder Point',
-      render: (_: any, item: InventoryItem) => (
-        <div className="text-sm">{item.inventory.reorderPoint}</div>
-      ),
-      mobileHidden: true
-    },
-    {
       key: 'lastRestock',
       title: 'Last Restock',
       render: (_: any, item: InventoryItem) => (
         <div className="text-sm">
-          {item.inventory.lastRestock 
+          {item.inventory.lastRestock
             ? new Date(item.inventory.lastRestock).toLocaleDateString()
             : 'Never'
           }
@@ -562,7 +503,7 @@ export default function InventoryList() {
             Edit
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => handleDelete(item.inventory.id)}
           className="text-red-600 focus:text-red-600"
         >
@@ -651,7 +592,7 @@ export default function InventoryList() {
             <div className="text-2xl font-bold">{stats.totalItems}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
@@ -719,7 +660,7 @@ export default function InventoryList() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Stock Status</label>
               <select
@@ -761,38 +702,16 @@ export default function InventoryList() {
       </Card>
 
       {/* Inventory Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="weight" className="flex items-center gap-2">
-            <ScaleIcon className="h-4 w-4" />
-            Weight-Based ({inventory.filter(item => isWeightBasedProduct(item.product?.stockManagementType || 'quantity')).length})
-          </TabsTrigger>
-          <TabsTrigger value="quantity" className="flex items-center gap-2">
-            <PackageIcon className="h-4 w-4" />
-            Quantity-Based ({inventory.filter(item => !isWeightBasedProduct(item.product?.stockManagementType || 'quantity')).length})
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="weight" className="space-y-4">
-          <ResponsiveTable
-            columns={weightColumns}
-            data={filteredInventory}
-            loading={loading}
-            emptyMessage="No weight-based inventory items found"
-            actions={renderActions}
-          />
-        </TabsContent>
-        
-        <TabsContent value="quantity" className="space-y-4">
-          <ResponsiveTable
-            columns={quantityColumns}
-            data={filteredInventory}
-            loading={loading}
-            emptyMessage="No quantity-based inventory items found"
-            actions={renderActions}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Unified Inventory Table */}
+      <div className="space-y-4">
+        <ResponsiveTable
+          columns={columns}
+          data={filteredInventory}
+          loading={loading}
+          emptyMessage="No inventory items found"
+          actions={renderActions}
+        />
+      </div>
     </div>
   );
 } 

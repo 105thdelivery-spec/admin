@@ -50,10 +50,10 @@ export default function DriversList() {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
-      
+
       const response = await fetch(`/api/drivers?${params}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setDrivers(data.drivers || []);
       } else {
@@ -99,7 +99,7 @@ export default function DriversList() {
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.offline;
-    
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.class}`}>
         {config.label}
@@ -113,7 +113,7 @@ export default function DriversList() {
       driver.vehicleModel,
       driver.vehicleColor
     ].filter(Boolean);
-    
+
     return parts.length > 0 ? parts.join(' ') : driver.vehicleType;
   };
 
