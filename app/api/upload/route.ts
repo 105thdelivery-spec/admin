@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
             contentType: file.type,
             cacheControl: 'public, max-age=31536000', // Cache for 1 year
           },
-          public: true, // Make file publicly accessible
+          // Note: public access is managed at bucket level (uniform access)
         });
 
         // Get public URL
