@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.9.1",
+    "@google-cloud/storage": "^7.17.3",
     "@googlemaps/js-api-loader": "^1.16.10",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",

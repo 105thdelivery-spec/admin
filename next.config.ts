@@ -5,13 +5,21 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   // Configure external packages for server components
-  serverExternalPackages: ['@vercel/blob'],
+  serverExternalPackages: ['@google-cloud/storage'],
   // Optimize bundle size
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
   images: {
     remotePatterns: [
+      // Google Cloud Storage
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+      // Keep Vercel Blob for backward compatibility with existing images
       {
         protocol: 'https',
         hostname: '*.public.blob.vercel-storage.com',
