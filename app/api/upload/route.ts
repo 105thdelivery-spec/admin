@@ -74,9 +74,15 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Sanitize filename - remove spaces and special characters
+    const sanitizedFileName = file.name
+      .replace(/\s+/g, '-')  // Replace spaces with hyphens
+      .replace(/[^a-zA-Z0-9.-]/g, '')  // Remove special characters except dots and hyphens
+      .toLowerCase();
+
     // Generate unique filename with directory structure
     const timestamp = Date.now();
-    const fileName = `${directory}/${timestamp}-${file.name}`;
+    const fileName = `${directory}/${timestamp}-${sanitizedFileName}`;
     console.log('Generated filename:', fileName);
 
     // Compress file if needed
