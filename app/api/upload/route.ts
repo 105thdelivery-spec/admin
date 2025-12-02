@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
-import { put } from '@vercel/blob';
 
 // Configure route to handle larger request bodies (20MB for 15MB file + form data overhead)
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds timeout for large uploads
 
-// Initialize Google Cloud Storage (only for production)
-let storage: Storage | null = null;
-try {
-  storage = new Storage();
-} catch (error) {
-  console.log('Google Cloud Storage not initialized (using Vercel Blob for local dev)');
-}
+// Initialize Google Cloud Storage
+// For local development, set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth
+const storage = new Storage();
 
 // Helper function to compress image on server side if needed
 async function compressImageIfNeeded(file: File): Promise<File> {
@@ -22,7 +17,7 @@ async function compressImageIfNeeded(file: File): Promise<File> {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('Upload API called');
+  console.log('Upload API called (Google Cloud Storage)');
 
   try {
     // Log request details
@@ -70,6 +65,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check environment variables
+    const bucketName = process.env.GCS_BUCKET_NAME;
+    if (!bucketName) {
+      console.error('GCS_BUCKET_NAME not configured');
+      return NextResponse.json({
+        error: 'Server configuration error: GCS_BUCKET_NAME not set'
+      }, { status: 500 });
+    }
+
     // Generate unique filename with directory structure
     const timestamp = Date.now();
     const fileName = `${directory}/${timestamp}-${file.name}`;
@@ -79,19 +83,55 @@ export async function POST(request: NextRequest) {
     const processedFile = await compressImageIfNeeded(file);
     console.log('File processing complete. Final size:', processedFile.size);
 
-    // Determine which storage to use
-    const bucketName = process.env.GCS_BUCKET_NAME;
-    const useGCS = bucketName && storage;
+    // Upload to Google Cloud Storage with retry logic
+    console.log('Starting upload to Google Cloud Storage...');
+    let publicUrl: string = '';
+    let retries = 3;
 
-    if (useGCS) {
-      // Use Google Cloud Storage (Production)
-      console.log('Using Google Cloud Storage...');
-      return await uploadToGCS(bucketName, fileName, processedFile, file.type);
-    } else {
-      // Use Vercel Blob (Local Development)
-      console.log('Using Vercel Blob for local development...');
-      return await uploadToVercelBlob(fileName, processedFile);
+    while (retries > 0) {
+      try {
+        const bucket = storage.bucket(bucketName);
+        const blob = bucket.file(fileName);
+
+        // Convert File to Buffer
+        const arrayBuffer = await processedFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Upload file
+        await blob.save(buffer, {
+          metadata: {
+            contentType: file.type,
+            cacheControl: 'public, max-age=31536000', // Cache for 1 year
+          },
+          public: true, // Make file publicly accessible
+        });
+
+        // Get public URL
+        publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+        console.log('Upload successful:', publicUrl);
+        break; // Success, exit retry loop
+
+      } catch (uploadError) {
+        retries--;
+        console.log(`Upload attempt failed, ${retries} retries left:`, uploadError);
+
+        if (retries === 0) {
+          throw uploadError; // Re-throw if no retries left
+        }
+
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
+
+    if (!publicUrl) {
+      throw new Error('Upload failed - no URL returned');
+    }
+
+    return NextResponse.json({
+      url: publicUrl,
+      fileName: fileName
+    });
 
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -109,101 +149,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Upload to Google Cloud Storage
-async function uploadToGCS(bucketName: string, fileName: string, file: File, contentType: string) {
-  let publicUrl: string;
-  let retries = 3;
-
-  while (retries > 0) {
-    try {
-      const bucket = storage!.bucket(bucketName);
-      const blob = bucket.file(fileName);
-
-      // Convert File to Buffer
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Upload file
-      await blob.save(buffer, {
-        metadata: {
-          contentType: contentType,
-          cacheControl: 'public, max-age=31536000', // Cache for 1 year
-        },
-        public: true, // Make file publicly accessible
-      });
-
-      // Get public URL
-      publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-      console.log('Upload successful (GCS):', publicUrl);
-      break; // Success, exit retry loop
-
-    } catch (uploadError) {
-      retries--;
-      console.log(`Upload attempt failed, ${retries} retries left:`, uploadError);
-
-      if (retries === 0) {
-        throw uploadError; // Re-throw if no retries left
-      }
-
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-  if (!publicUrl!) {
-    throw new Error('Upload failed - no URL returned');
-  }
-
-  return NextResponse.json({
-    url: publicUrl,
-    fileName: fileName,
-    storage: 'gcs'
-  });
-}
-
-// Upload to Vercel Blob (fallback for local development)
-async function uploadToVercelBlob(fileName: string, file: File) {
-  // Check environment variables
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.error('BLOB_READ_WRITE_TOKEN not configured');
-    return NextResponse.json({
-      error: 'Server configuration error: Neither GCS nor Vercel Blob is configured properly'
-    }, { status: 500 });
-  }
-
-  let blob;
-  let retries = 3;
-
-  while (retries > 0) {
-    try {
-      blob = await put(fileName, file, {
-        access: 'public',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-        addRandomSuffix: false,
-      });
-      break; // Success, exit retry loop
-    } catch (uploadError) {
-      retries--;
-      console.log(`Upload attempt failed, ${retries} retries left:`, uploadError);
-
-      if (retries === 0) {
-        throw uploadError;
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-  if (!blob) {
-    throw new Error('Upload failed - no blob returned');
-  }
-
-  console.log('Upload successful (Vercel Blob):', blob.url);
-  return NextResponse.json({
-    url: blob.url,
-    fileName: fileName,
-    storage: 'vercel-blob'
-  });
 }
