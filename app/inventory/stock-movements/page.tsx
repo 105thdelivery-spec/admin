@@ -3,6 +3,23 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { convertFromGrams, formatWeight } from '@/utils/weightUtils';
 import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Package,
+  TrendingUp,
+  TrendingDown,
+  Settings,
+  RefreshCw,
+  Plus,
+  ArrowLeft,
+  Trash2,
+  Search,
+  Calendar
+} from 'lucide-react';
 
 interface StockMovement {
   id: string;
@@ -38,7 +55,6 @@ export default function StockMovements() {
     startDate: '',
     endDate: ''
   });
-  // Checkbox and delete functionality state
   const [selectedMovements, setSelectedMovements] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
@@ -66,7 +82,6 @@ export default function StockMovements() {
     setLoading(false);
   };
 
-  // Checkbox handling functions
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedMovements(new Set(filteredMovements.map(m => m.id)));
@@ -112,8 +127,6 @@ export default function StockMovements() {
       if (response.ok) {
         const result = await response.json();
         alert(result.message + (result.warning ? `\n\nWarning: ${result.warning}` : ''));
-
-        // Refresh the movements list
         await fetchStockMovements();
         setSelectedMovements(new Set());
       } else {
@@ -131,7 +144,6 @@ export default function StockMovements() {
   const filterMovements = () => {
     let filtered = movements;
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(movement =>
         movement.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,12 +153,10 @@ export default function StockMovements() {
       );
     }
 
-    // Movement type filter
     if (movementFilter !== 'all') {
       filtered = filtered.filter(movement => movement.movementType === movementFilter);
     }
 
-    // Date range filter
     if (dateRange.startDate) {
       filtered = filtered.filter(movement =>
         new Date(movement.createdAt) >= new Date(dateRange.startDate)
@@ -161,21 +171,12 @@ export default function StockMovements() {
     setFilteredMovements(filtered);
   };
 
-  const getMovementTypeIcon = (type: string) => {
+  const getMovementTypeVariant = (type: string): "default" | "destructive" | "secondary" | "outline" => {
     switch (type) {
-      case 'in': return '📈';
-      case 'out': return '📉';
-      case 'adjustment': return '🔧';
-      default: return '📦';
-    }
-  };
-
-  const getMovementTypeColor = (type: string) => {
-    switch (type) {
-      case 'in': return 'text-green-600 bg-green-100';
-      case 'out': return 'text-red-600 bg-red-100';
-      case 'adjustment': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'in': return 'default';
+      case 'out': return 'destructive';
+      case 'adjustment': return 'secondary';
+      default: return 'outline';
     }
   };
 
@@ -188,239 +189,278 @@ export default function StockMovements() {
   };
 
   const formatWeightDisplay = (weight: number | string | undefined) => {
-    // Use the weight label from settings to display weight consistently s
-    // Convert to number to handle database Decimal types or strings s
     const numericWeight = typeof weight === 'number' ? weight : parseFloat(String(weight || '0'));
     return formatWeight(numericWeight, weightLabel).formattedString;
   };
 
-  if (loading) return <div className="p-8 text-center">Loading stock movements...</div>;
+  if (loading) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 bg-gray-200 rounded animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const totals = getTotalMovements();
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">📊 Stock Movements</h1>
-          <p className="text-gray-600">Track all inventory movements and changes</p>
+          <h1 className="text-3xl font-bold tracking-tight">Stock Movements</h1>
+          <p className="text-muted-foreground">Track all inventory movements and changes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {selectedMovements.size > 0 && (
-            <button
+            <Button
               onClick={handleDeleteSelected}
               disabled={deleting}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+              variant="destructive"
+              size="sm"
             >
-              {deleting ? 'Deleting...' : `🗑️ Delete Selected (${selectedMovements.size})`}
-            </button>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {deleting ? 'Deleting...' : `Delete (${selectedMovements.size})`}
+            </Button>
           )}
-          <button
+          <Button
             onClick={fetchStockMovements}
             disabled={loading}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            variant="outline"
+            size="sm"
           >
-            {loading ? 'Refreshing...' : '🔄 Refresh'}
-          </button>
-          <Link
-            href="/inventory/stock-movements/add"
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-          >
-            ➕ Add Stock Movement
-          </Link>
-          <Link
-            href="/inventory"
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-          >
-            ← Back to Inventory
-          </Link>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/inventory/stock-movements/add">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Movement
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/inventory">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-gray-800">{filteredMovements.length}</div>
-              <div className="text-gray-600">Total Movements</div>
-            </div>
-            <div className="text-3xl">📦</div>
-          </div>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-green-800">+{totals.in}</div>
-              <div className="text-green-600">Stock In</div>
-            </div>
-            <div className="text-3xl">📈</div>
-          </div>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-red-800">-{totals.out}</div>
-              <div className="text-red-600">Stock Out</div>
-            </div>
-            <div className="text-3xl">📉</div>
-          </div>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-blue-800">{totals.adjustments}</div>
-              <div className="text-blue-600">Adjustments</div>
-            </div>
-            <div className="text-3xl">🔧</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Movements</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredMovements.length}</div>
+            <p className="text-xs text-muted-foreground">All time records</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stock In</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">+{totals.in}</div>
+            <p className="text-xs text-muted-foreground">Units added</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stock Out</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">-{totals.out}</div>
+            <p className="text-xs text-muted-foreground">Units removed</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Adjustments</CardTitle>
+            <Settings className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{totals.adjustments}</div>
+            <p className="text-xs text-muted-foreground">Manual corrections</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
-      <div className="bg-white border rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-            <input
-              type="text"
-              placeholder="Search products, reasons, references..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+          <CardDescription>Search and filter stock movements</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search products, reasons..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Movement Type</label>
+              <select
+                value={movementFilter}
+                onChange={(e) => setMovementFilter(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="all">All Movements</option>
+                <option value="in">Stock In</option>
+                <option value="out">Stock Out</option>
+                <option value="adjustment">Adjustments</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Start Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">End Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                  className="pl-8"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Movement Type</label>
-            <select
-              value={movementFilter}
-              onChange={(e) => setMovementFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Movements</option>
-              <option value="in">Stock In</option>
-              <option value="out">Stock Out</option>
-              <option value="adjustment">Adjustments</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-            <input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-            <input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Movements Table */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="border-b p-3 text-center font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={filteredMovements.length > 0 && selectedMovements.size === filteredMovements.length}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </th>
-                <th className="border-b p-3 text-left font-semibold">Date</th>
-                <th className="border-b p-3 text-left font-semibold">Product</th>
-                <th className="border-b p-3 text-left font-semibold">Variant</th>
-                <th className="border-b p-3 text-left font-semibold">Stock Type</th>
-                <th className="border-b p-3 text-left font-semibold">Type</th>
-                <th className="border-b p-3 text-left font-semibold">Quantity/Weight</th>
-                <th className="border-b p-3 text-left font-semibold">Reason</th>
-                <th className="border-b p-3 text-left font-semibold">Location</th>
-                <th className="border-b p-3 text-left font-semibold">Reference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMovements.length > 0 ? (
-                filteredMovements.map((movement) => (
-                  <tr key={movement.id} className="hover:bg-gray-50">
-                    <td className="border-b p-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedMovements.has(movement.id)}
-                        onChange={(e) => handleSelectMovement(movement.id, e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="border-b p-3 text-sm">
-                      {new Date(movement.createdAt).toLocaleDateString()} <br />
-                      <span className="text-gray-500">
-                        {new Date(movement.createdAt).toLocaleTimeString()}
-                      </span>
-                    </td>
-                    <td className="border-b p-3">
-                      <div className="font-medium">{movement.productName}</div>
-                    </td>
-                    <td className="border-b p-3">{movement.variantTitle || 'Base Product'}</td>
-                    <td className="border-b p-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${movement.stockManagementType === 'weight'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {movement.stockManagementType === 'weight' ? '⚖️ Weight' : '📦 Quantity'}
-                      </span>
-                    </td>
-                    <td className="border-b p-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getMovementTypeColor(movement.movementType)}`}>
-                        {getMovementTypeIcon(movement.movementType)} {movement.movementType.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="border-b p-3">
-                      <div className="space-y-1">
-                        <span className={`font-semibold ${movement.movementType === 'in' ? 'text-green-600' :
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={filteredMovements.length > 0 && selectedMovements.size === filteredMovements.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                  </TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Variant</TableHead>
+                  <TableHead>Stock Type</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Quantity/Weight</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Reference</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMovements.length > 0 ? (
+                  filteredMovements.map((movement) => (
+                    <TableRow key={movement.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedMovements.has(movement.id)}
+                          onChange={(e) => handleSelectMovement(movement.id, e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <div>{new Date(movement.createdAt).toLocaleDateString()}</div>
+                        <div className="text-muted-foreground text-xs">
+                          {new Date(movement.createdAt).toLocaleTimeString()}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{movement.productName}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {movement.variantTitle || 'Base Product'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={movement.stockManagementType === 'weight' ? 'secondary' : 'outline'}>
+                          {movement.stockManagementType === 'weight' ? 'Weight' : 'Quantity'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getMovementTypeVariant(movement.movementType)}>
+                          {movement.movementType.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className={`font-semibold ${movement.movementType === 'in' ? 'text-green-600' :
                             movement.movementType === 'out' ? 'text-red-600' : 'text-blue-600'
-                          }`}>
-                          {movement.movementType === 'in' ? '+' : movement.movementType === 'out' ? '-' : '±'}
-                          {movement.quantity}
-                        </span>
-                        {movement.weightQuantity && movement.stockManagementType === 'weight' && (
-                          <div className={`text-sm ${movement.movementType === 'in' ? 'text-green-500' :
-                              movement.movementType === 'out' ? 'text-red-500' : 'text-blue-500'
                             }`}>
                             {movement.movementType === 'in' ? '+' : movement.movementType === 'out' ? '-' : '±'}
-                            {formatWeightDisplay(movement.weightQuantity)}
+                            {movement.quantity}
                           </div>
-                        )}
+                          {movement.weightQuantity && movement.stockManagementType === 'weight' && (
+                            <div className={`text-sm ${movement.movementType === 'in' ? 'text-green-500' :
+                              movement.movementType === 'out' ? 'text-red-500' : 'text-blue-500'
+                              }`}>
+                              {movement.movementType === 'in' ? '+' : movement.movementType === 'out' ? '-' : '±'}
+                              {formatWeightDisplay(movement.weightQuantity)}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{movement.reason}</TableCell>
+                      <TableCell className="text-sm">{movement.location}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {movement.reference || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center">
+                      <div className="text-muted-foreground">
+                        {searchTerm || movementFilter !== 'all' || dateRange.startDate || dateRange.endDate
+                          ? 'No stock movements match your filters'
+                          : 'No stock movements recorded yet'
+                        }
                       </div>
-                    </td>
-                    <td className="border-b p-3">{movement.reason}</td>
-                    <td className="border-b p-3">{movement.location}</td>
-                    <td className="border-b p-3">{movement.reference || '-'}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={10} className="border-b p-8 text-center text-gray-500">
-                    {searchTerm || movementFilter !== 'all' || dateRange.startDate || dateRange.endDate
-                      ? 'No stock movements match your filters'
-                      : 'No stock movements recorded yet'
-                    }
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-} 
+}

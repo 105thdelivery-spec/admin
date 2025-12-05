@@ -1,8 +1,14 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import CurrencySymbol from '../../../components/CurrencySymbol';
 import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   formatWeightAuto,
   isWeightBasedProduct,
@@ -12,10 +18,19 @@ import {
   formatWeightForInput,
   WeightUnit
 } from '@/utils/weightUtils';
+import {
+  ArrowLeft,
+  TrendingUp,
+  TrendingDown,
+  Settings,
+  Package,
+  Info,
+  AlertCircle
+} from 'lucide-react';
 
 export default function AddStockMovement() {
   const router = useRouter();
-  const { weightLabel } = useWeightLabel();
+  const { weightLabel, loading: loadingWeightLabel, refreshWeightLabel } = useWeightLabel();
   const [formData, setFormData] = useState({
     productId: '',
     variantId: '',
@@ -27,9 +42,8 @@ export default function AddStockMovement() {
     notes: '',
     costPrice: 0,
     supplier: '',
-    // Weight-based fields
     weightQuantity: '',
-    weightUnit: 'g' as WeightUnit // Will be synced with weightLabel from context
+    weightUnit: 'g' as WeightUnit
   });
 
   const [products, setProducts] = useState([]);
@@ -41,9 +55,9 @@ export default function AddStockMovement() {
   const [error, setError] = useState('');
 
   const movementTypes = [
-    { value: 'in', label: 'Stock In', icon: '📈', description: 'Add stock (purchase, return, etc.)' },
-    { value: 'out', label: 'Stock Out', icon: '📉', description: 'Remove stock (sale, damaged, etc.)' },
-    { value: 'adjustment', label: 'Adjustment', icon: '🔧', description: 'Correct inventory discrepancies' }
+    { value: 'in', label: 'Stock In', icon: TrendingUp, description: 'Add stock (purchase, return, etc.)', color: 'text-green-600' },
+    { value: 'out', label: 'Stock Out', icon: TrendingDown, description: 'Remove stock (sale, damaged, etc.)', color: 'text-red-600' },
+    { value: 'adjustment', label: 'Adjustment', icon: Settings, description: 'Correct inventory discrepancies', color: 'text-blue-600' }
   ];
 
   const predefinedReasons = {
@@ -75,7 +89,6 @@ export default function AddStockMovement() {
     ]
   };
 
-  // Update reason when movement type changes
   useEffect(() => {
     const reasons = predefinedReasons[formData.movementType as keyof typeof predefinedReasons];
     if (reasons && reasons.length > 0) {
@@ -85,9 +98,9 @@ export default function AddStockMovement() {
 
   useEffect(() => {
     fetchProducts();
+    refreshWeightLabel();
   }, []);
 
-  // Sync weightUnit with weightLabel from settings
   useEffect(() => {
     if (weightLabel) {
       setFormData(prev => ({ ...prev, weightUnit: weightLabel }));
@@ -98,14 +111,20 @@ export default function AddStockMovement() {
     if (formData.productId) {
       fetchProductVariants(formData.productId);
       fetchCurrentInventory();
-      const product = products.find((p: any) => p.product.id === formData.productId);
+      const product: any = products.find((p: any) => p.product.id === formData.productId);
       setSelectedProduct(product);
+
+      if (product &&
+        product.product.productType === 'variable' &&
+        isWeightBasedProduct(product.product.stockManagementType || 'quantity')) {
+        setFormData(prev => ({ ...prev, variantId: '' }));
+      }
     } else {
       setVariants([]);
       setSelectedProduct(null);
       setCurrentInventory(null);
     }
-  }, [formData.productId, formData.variantId, products]);
+  }, [formData.productId, products]);
 
   const fetchProducts = async () => {
     try {
@@ -135,7 +154,6 @@ export default function AddStockMovement() {
       const response = await fetch('/api/inventory');
       const data = await response.json();
 
-      // Find current inventory for the selected product/variant
       const inventory = data.find((item: any) => {
         if (formData.variantId) {
           return item.inventory.variantId === formData.variantId;
@@ -146,45 +164,44 @@ export default function AddStockMovement() {
 
       setCurrentInventory(inventory);
     } catch (err) {
-      console.error('Error fetching current inventory:', err);
+      console.error('Error fetching inventory:', err);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'quantity' || name === 'costPrice' ? parseFloat(value) || 0 : value
+    }));
   };
 
   const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const productId = e.target.value;
-    setFormData({
-      ...formData,
-      productId,
-      variantId: '', // Reset variant when product changes
-    });
+    setFormData(prev => ({
+      ...prev,
+      productId: e.target.value,
+      variantId: ''
+    }));
   };
 
   const isSelectedProductWeightBased = () => {
-    if (!selectedProduct) return false;
-    return isWeightBasedProduct(selectedProduct.product.stockManagementType || 'quantity');
+    return selectedProduct && isWeightBasedProduct(selectedProduct.product.stockManagementType || 'quantity');
   };
 
   const calculateNewQuantity = () => {
     if (!currentInventory) return formData.quantity;
 
-    const current = currentInventory.inventory.quantity || 0;
+    const currentQty = currentInventory.inventory.quantity || 0;
+
     switch (formData.movementType) {
       case 'in':
-        return current + formData.quantity;
+        return currentQty + formData.quantity;
       case 'out':
-        return current - formData.quantity;
+        return currentQty - formData.quantity;
       case 'adjustment':
-        return formData.quantity; // For adjustments, quantity is the new total
+        return formData.quantity;
       default:
-        return current;
+        return currentQty;
     }
   };
 
@@ -200,7 +217,7 @@ export default function AddStockMovement() {
       case 'out':
         return currentWeight - movementWeight;
       case 'adjustment':
-        return movementWeight; // For adjustments, weight is the new total
+        return movementWeight;
       default:
         return currentWeight;
     }
@@ -211,20 +228,19 @@ export default function AddStockMovement() {
     setSubmitting(true);
     setError('');
 
-    // Validation
     if (!formData.productId) {
       setError('Please select a product');
       setSubmitting(false);
       return;
     }
 
-    if (variants.length > 0 && !formData.variantId) {
+    const isWeightBased = isSelectedProductWeightBased();
+
+    if (variants.length > 0 && !formData.variantId && !isWeightBased) {
       setError('Please select a variant for this variable product');
       setSubmitting(false);
       return;
     }
-
-    const isWeightBased = isSelectedProductWeightBased();
 
     if (isWeightBased) {
       if (!formData.weightQuantity || parseFloat(formData.weightQuantity) <= 0) {
@@ -246,7 +262,6 @@ export default function AddStockMovement() {
       return;
     }
 
-    // Check if stock out would result in negative inventory
     if (formData.movementType === 'out' && currentInventory) {
       if (isWeightBased) {
         const newWeight = calculateNewWeight();
@@ -268,15 +283,15 @@ export default function AddStockMovement() {
     try {
       const submitData = {
         ...formData,
-        variantId: formData.variantId || null,
-        // Add weight fields if it's a weight-based product
+        variantId: (isWeightBased && selectedProduct?.product.productType === 'variable')
+          ? null
+          : (formData.variantId || null),
         ...(isWeightBased && {
           weightQuantity: parseFloat(formData.weightQuantity),
           weightUnit: formData.weightUnit
         })
       };
 
-      // This would be a new API endpoint for stock movements
       const response = await fetch('/api/inventory/stock-movements', {
         method: 'POST',
         headers: {
@@ -298,403 +313,366 @@ export default function AddStockMovement() {
     }
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+        <div className="h-96 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    );
+  }
 
   const newQuantity = calculateNewQuantity();
   const newWeight = calculateNewWeight();
   const isWeightBased = isSelectedProductWeightBased();
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">📊 Add Stock Movement</h1>
-        <button
-          onClick={() => router.push('/inventory/stock-movements')}
-          className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-        >
-          ← Back to Stock Movements
-        </button>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Add Stock Movement</h1>
+          <p className="text-muted-foreground">Record inventory changes and adjustments</p>
+        </div>
+        <Button asChild variant="ghost">
+          <Link href="/inventory/stock-movements">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
+        </Button>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-          {error}
-        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">Error</p>
+                <p className="text-sm text-destructive/90">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Form */}
-        <div className="lg:col-span-2">
-          <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6">
+        <div className="lg:col-span-2 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Movement Type Selection */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4">Movement Type</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {movementTypes.map((type) => (
-                  <label
-                    key={type.value}
-                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${formData.movementType === type.value
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                  >
-                    <input
-                      type="radio"
-                      name="movementType"
-                      value={type.value}
-                      checked={formData.movementType === type.value}
-                      onChange={handleChange}
-                      className="sr-only"
-                    />
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">{type.icon}</span>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-sm text-gray-500">{type.description}</div>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Movement Type</CardTitle>
+                <CardDescription>Select the type of stock movement</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {movementTypes.map((type) => {
+                    const Icon = type.icon;
+                    return (
+                      <label
+                        key={type.value}
+                        className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${formData.movementType === type.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="movementType"
+                          value={type.value}
+                          checked={formData.movementType === type.value}
+                          onChange={handleChange}
+                          className="sr-only"
+                        />
+                        <div className="flex items-start gap-3">
+                          <Icon className={`h-5 w-5 mt-0.5 ${type.color}`} />
+                          <div>
+                            <div className="font-medium">{type.label}</div>
+                            <div className="text-sm text-muted-foreground">{type.description}</div>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Product Selection */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4">Product Selection</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="productId">
-                    Product <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="productId"
-                    name="productId"
-                    value={formData.productId}
-                    onChange={handleProductChange}
-                    className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                    required
-                  >
-                    <option value="">Select a product...</option>
-                    {products.map((product: any) => (
-                      <option key={product.product.id} value={product.product.id}>
-                        {product.product.name} {product.product.sku && `(${product.product.sku})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {variants.length > 0 && (
-                  <div>
-                    <label className="block text-gray-700 mb-2" htmlFor="variantId">
-                      Variant <span className="text-red-500">*</span>
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Selection</CardTitle>
+                <CardDescription>Choose the product and variant</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Product <span className="text-destructive">*</span>
                     </label>
                     <select
-                      id="variantId"
-                      name="variantId"
-                      value={formData.variantId}
-                      onChange={handleChange}
-                      className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                      required={variants.length > 0}
+                      name="productId"
+                      value={formData.productId}
+                      onChange={handleProductChange}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      required
                     >
-                      <option value="">Select a variant...</option>
-                      {variants.map((variant: any) => (
-                        <option key={variant.variant.id} value={variant.variant.id}>
-                          {variant.variant.title} {variant.variant.sku && `(${variant.variant.sku})`}
+                      <option value="">Select a product...</option>
+                      {products.map((product: any) => (
+                        <option key={product.product.id} value={product.product.id}>
+                          {product.product.name} {product.product.sku && `(${product.product.sku})`}
                         </option>
                       ))}
                     </select>
                   </div>
-                )}
-              </div>
 
-              {selectedProduct && (
-                <div className="mt-4 p-3 bg-gray-50 rounded">
-                  <h4 className="font-medium text-gray-700 mb-2">Product Information</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Type:</span>
-                      <span className="ml-2 font-medium">{selectedProduct.product.productType || 'Simple'}</span>
+                  {variants.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Variant {!isSelectedProductWeightBased() && <span className="text-destructive">*</span>}
+                      </label>
+                      {isSelectedProductWeightBased() ? (
+                        <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Info className="h-4 w-4" />
+                            <span>Stock managed at product level</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          name="variantId"
+                          value={formData.variantId}
+                          onChange={handleChange}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          required={variants.length > 0 && !isSelectedProductWeightBased()}
+                        >
+                          <option value="">Select a variant...</option>
+                          {variants.map((variant: any) => (
+                            <option key={variant.variant.id} value={variant.variant.id}>
+                              {variant.variant.title} {variant.variant.sku && `(${variant.variant.sku})`}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-gray-500">Stock Type:</span>
-                      <span className="ml-2 font-medium">
-                        {isSelectedProductWeightBased() ? '⚖️ Weight-based' : '📦 Quantity-based'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Price:</span>
-                      <span className="ml-2 font-medium">
-                        {isSelectedProductWeightBased()
-                          ? selectedProduct.product.baseWeightUnit === 'kg'
-                            ? `${parseFloat(selectedProduct.product.pricePerUnit || '0').toFixed(2)}/kg`
-                            : `${(parseFloat(selectedProduct.product.pricePerUnit || '0') * 1000).toFixed(2)}/kg`
-                          : `${selectedProduct.product.price}`
-                        }
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Category:</span>
-                      <span className="ml-2 font-medium">{selectedProduct.category?.name || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Current Stock:</span>
-                      <span className="ml-2 font-medium">
-                        {currentInventory ? (
-                          isSelectedProductWeightBased()
-                            ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
-                            : currentInventory.inventory.quantity
-                        ) : 'No inventory record'}
-                      </span>
+                  )}
+                </div>
+
+                {isSelectedProductWeightBased() && selectedProduct?.product.productType === 'variable' && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-900">Product-Level Inventory</p>
+                      <p className="text-blue-700 mt-1">
+                        For weight-based variable products, inventory is tracked at the main product level.
+                        Variations are used for ordering/display purposes only.
+                      </p>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Movement Details */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4">Movement Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {isSelectedProductWeightBased() ? (
-                  <div>
-                    <label className="block text-gray-700 mb-2">
-                      {formData.movementType === 'adjustment' ? 'New Total Weight' : 'Weight'} ({weightLabel}) <span className="text-red-500">*</span>
+            {/* Quantity/Weight Input */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Movement Details</CardTitle>
+                <CardDescription>Enter the quantity or weight to move</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isWeightBased ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Weight Quantity <span className="text-destructive">*</span>
                     </label>
                     <div className="flex gap-2">
-                      <input
+                      <Input
                         type="number"
+                        name="weightQuantity"
                         value={formData.weightQuantity}
-                        onChange={(e) => setFormData({ ...formData, weightQuantity: e.target.value })}
-                        className="flex-1 p-2 border rounded focus:border-blue-500 focus:outline-none"
-                        min="0"
-                        step={weightLabel === 'g' ? '1' : '0.01'}
-                        placeholder={`Enter weight in ${weightLabel}`}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        step="0.01"
                         required
+                        className="flex-1"
                       />
-                      <div className="flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded text-gray-700 font-medium">
-                        {weightLabel}
+                      <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm font-medium text-muted-foreground whitespace-nowrap">
+                        {loadingWeightLabel ? (
+                          <span className="animate-pulse">...</span>
+                        ) : (
+                          getWeightUnits().find(u => u.value === weightLabel)?.label || weightLabel
+                        )}
                       </div>
                     </div>
-                    {formData.movementType === 'adjustment' && (
-                      <p className="text-xs text-gray-500 mt-1">Enter the new total weight after adjustment</p>
-                    )}
                   </div>
                 ) : (
-                  <div>
-                    <label className="block text-gray-700 mb-2" htmlFor="quantity">
-                      {formData.movementType === 'adjustment' ? 'New Total Quantity' : 'Quantity'} <span className="text-red-500">*</span>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Quantity <span className="text-destructive">*</span>
                     </label>
-                    <input
+                    <Input
                       type="number"
-                      id="quantity"
                       name="quantity"
                       value={formData.quantity}
                       onChange={handleChange}
-                      className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
+                      placeholder="0"
                       min="0"
                       required
                     />
-                    {formData.movementType === 'adjustment' && (
-                      <p className="text-xs text-gray-500 mt-1">Enter the new total quantity after adjustment</p>
-                    )}
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="reason">
-                    Reason <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="reason"
-                    name="reason"
-                    value={formData.reason}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                    required
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Reason <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      name="reason"
+                      value={formData.reason}
+                      onChange={handleChange}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      required
+                    >
+                      {predefinedReasons[formData.movementType as keyof typeof predefinedReasons].map(reason => (
+                        <option key={reason} value={reason}>{reason}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                    {predefinedReasons[formData.movementType as keyof typeof predefinedReasons].map((reason) => (
-                      <option key={reason} value={reason}>
-                        {reason}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Location</label>
+                    <Input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      placeholder="e.g., Warehouse A, Shelf 3"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="location">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                    placeholder="Warehouse, shelf, etc."
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Reference</label>
+                    <Input
+                      type="text"
+                      name="reference"
+                      value={formData.reference}
+                      onChange={handleChange}
+                      placeholder="e.g., PO-12345"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="reference">
-                    Reference
-                  </label>
-                  <input
-                    type="text"
-                    id="reference"
-                    name="reference"
-                    value={formData.reference}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                    placeholder="PO number, invoice, etc."
-                  />
-                </div>
-
-                {formData.movementType === 'in' && (
-                  <>
-                    <div>
-                      <label className="block text-gray-700 mb-2" htmlFor="costPrice">
-                        Cost Price per Unit
-                      </label>
-                      <input
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Cost Price</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-muted-foreground">
+                        <CurrencySymbol />
+                      </span>
+                      <Input
                         type="number"
-                        id="costPrice"
                         name="costPrice"
                         value={formData.costPrice}
                         onChange={handleChange}
-                        className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                        min="0"
-                        step="0.01"
                         placeholder="0.00"
+                        step="0.01"
+                        className="pl-7"
                       />
                     </div>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-gray-700 mb-2" htmlFor="supplier">
-                        Supplier
-                      </label>
-                      <input
-                        type="text"
-                        id="supplier"
-                        name="supplier"
-                        value={formData.supplier}
-                        onChange={handleChange}
-                        className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                        placeholder="Supplier name"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Supplier</label>
+                  <Input
+                    type="text"
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleChange}
+                    placeholder="Supplier name"
+                  />
+                </div>
 
-            {/* Notes */}
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2" htmlFor="notes">
-                Additional Notes
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                rows={3}
-                placeholder="Additional notes about this stock movement..."
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notes</label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    placeholder="Additional notes..."
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                disabled={submitting}
-              >
-                {submitting ? 'Processing...' : 'Record Stock Movement'}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/inventory/stock-movements')}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-              >
+            <div className="flex gap-3">
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? 'Processing...' : 'Create Stock Movement'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.push('/inventory/stock-movements')}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
 
-        {/* Summary Panel */}
-        <div className="lg:col-span-1">
-          <div className="bg-white border rounded-lg p-6 sticky top-4">
-            <h3 className="text-lg font-semibold mb-4">📊 Impact Summary</h3>
-
-            <div className="space-y-4">
-              {currentInventory && (
-                <div className="p-3 bg-gray-50 rounded">
-                  <div className="text-sm text-gray-600">Current Stock</div>
-                  <div className="text-2xl font-bold text-gray-800">
-                    {isWeightBased
-                      ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
-                      : currentInventory.inventory.quantity
-                    }
-                  </div>
+        {/* Preview Sidebar */}
+        <div className="space-y-6">
+          {selectedProduct && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Product Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Product</p>
+                  <p className="text-sm font-semibold">{selectedProduct.product.name}</p>
                 </div>
-              )}
-
-              <div className="p-3 bg-blue-50 rounded">
-                <div className="text-sm text-gray-600">Movement {isWeightBased ? 'Weight' : 'Quantity'}</div>
-                <div className={`text-2xl font-bold ${formData.movementType === 'in' ? 'text-green-800' :
-                    formData.movementType === 'out' ? 'text-red-800' : 'text-blue-800'
-                  }`}>
-                  {formData.movementType === 'in' ? '+' :
-                    formData.movementType === 'out' ? '-' : '±'}
-                  {isWeightBased
-                    ? formatWeightAuto(parseFloat(formData.weightQuantity || '0'), weightLabel).formattedString
-                    : formData.quantity
-                  }
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Stock Type</p>
+                  <Badge variant={isWeightBased ? 'secondary' : 'outline'}>
+                    {isWeightBased ? 'Weight-Based' : 'Quantity-Based'}
+                  </Badge>
                 </div>
-              </div>
-
-              {currentInventory && (
-                <div className="p-3 bg-green-50 rounded">
-                  <div className="text-sm text-gray-600">New Stock Level</div>
-                  <div className={`text-2xl font-bold ${(isWeightBased ? newWeight : newQuantity) < 0 ? 'text-red-800' : 'text-green-800'
-                    }`}>
-                    {isWeightBased
-                      ? formatWeightAuto(newWeight, weightLabel).formattedString
-                      : newQuantity
-                    }
-                  </div>
-                  {(isWeightBased ? newWeight : newQuantity) < 0 && (
-                    <div className="text-xs text-red-600 mt-1">
-                      ⚠️ This would result in negative inventory
+                {currentInventory && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
+                      <p className="text-lg font-bold">
+                        {isWeightBased
+                          ? formatWeightAuto(parseFloat(currentInventory.inventory.weightQuantity || '0'), weightLabel).formattedString
+                          : `${currentInventory.inventory.quantity || 0} units`
+                        }
+                      </p>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {formData.costPrice > 0 && formData.movementType === 'in' && (
-                <div className="p-3 bg-purple-50 rounded">
-                  <div className="text-sm text-gray-600">Total Value Added</div>
-                  <div className="text-2xl font-bold text-purple-800">
-                    <span className="flex items-center gap-1"><CurrencySymbol />{(formData.quantity * formData.costPrice).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-
-              {formData.movementType && formData.reason && (
-                <div className="p-3 bg-yellow-50 rounded">
-                  <div className="text-sm text-gray-600">Movement Summary</div>
-                  <div className="text-sm font-medium">
-                    {movementTypes.find(t => t.value === formData.movementType)?.label}: {formData.reason}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                    <Separator />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">New Stock (Preview)</p>
+                      <p className={`text-lg font-bold ${newQuantity < 0 || newWeight < 0 ? 'text-destructive' : 'text-green-600'
+                        }`}>
+                        {isWeightBased
+                          ? formatWeightAuto(newWeight, weightLabel).formattedString
+                          : `${newQuantity} units`
+                        }
+                      </p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
   );
-} 
+}

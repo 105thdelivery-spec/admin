@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, categories, subcategories, productVariants, productAddons, productTags, tags, variationAttributeValues } from '@/lib/schema';
 import { v4 as uuidv4 } from 'uuid';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { generateSlug } from '@/utils/priceUtils';
 
@@ -22,8 +22,9 @@ export async function GET() {
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id));
-      
+      .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
+      .orderBy(desc(products.createdAt));
+
     return NextResponse.json(allProducts);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -33,29 +34,29 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { 
-      name, 
-      description, 
-      shortDescription, 
-      sku, 
-      price, 
-      comparePrice, 
-      costPrice, 
-      images, 
+    const {
+      name,
+      description,
+      shortDescription,
+      sku,
+      price,
+      comparePrice,
+      costPrice,
+      images,
       banner,
-      categoryId, 
-      subcategoryId, 
-      tags, 
+      categoryId,
+      subcategoryId,
+      tags,
       selectedTags, // New tag system
-      weight, 
-      dimensions, 
-      isFeatured, 
-      isActive, 
-      isDigital, 
-      requiresShipping, 
+      weight,
+      dimensions,
+      isFeatured,
+      isActive,
+      isDigital,
+      requiresShipping,
       taxable,
-      outOfStock, 
-      metaTitle, 
+      outOfStock,
+      metaTitle,
       metaDescription,
       productType,
       variants,
@@ -71,30 +72,33 @@ export async function POST(req: NextRequest) {
       floweringTime,
       yieldAmount
     } = await req.json();
-    
+
     // Validate required fields
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
-    
+
     // Price validation - required for quantity-based products (except group), weight-based products need pricePerUnit
     if (productType !== 'group') {
-      if (stockManagementType === 'weight') {
+      if (stockManagementType === 'weight' && productType === 'simple') {
+        // Only simple products with weight-based stock need pricePerUnit
+        // Variable products set prices per variant
         if (pricePerUnit === undefined || pricePerUnit === null) {
           return NextResponse.json({ error: 'Price per unit is required for weight-based products' }, { status: 400 });
         }
-      } else {
-        if (price === undefined || price === null) {
+      } else if (stockManagementType !== 'weight') {
+        // Quantity-based products need a price (except variable products which set prices per variant)
+        if (productType !== 'variable' && (price === undefined || price === null)) {
           return NextResponse.json({ error: 'Price is required for quantity-based products' }, { status: 400 });
         }
       }
     }
-    
+
     // For group products with zero price, ensure they have addons
     if (productType === 'group' && (!price || price === 0) && (!addons || addons.length === 0)) {
       return NextResponse.json({ error: 'Group products with zero price must have at least one addon' }, { status: 400 });
     }
-    
+
     // Generate slug from name (ensure SEO-friendly)
     let finalSlug = generateSlug(name);
     // Ensure slug uniqueness by appending a numeric suffix if needed
@@ -113,10 +117,10 @@ export async function POST(req: NextRequest) {
 
     // For weight-based products, if price is not provided but pricePerUnit is, use pricePerUnit as price
     // This ensures the product has a displayable price
-    const finalPrice = stockManagementType === 'weight' 
+    const finalPrice = stockManagementType === 'weight'
       ? (price || pricePerUnit || 0)
       : (price || 0);
-    
+
     const newProduct = {
       id: uuidv4(),
       name,
@@ -155,10 +159,10 @@ export async function POST(req: NextRequest) {
       floweringTime: floweringTime || null,
       yieldAmount: yieldAmount || null,
     };
-    
+
     // Start transaction for product and variants
     await db.insert(products).values(newProduct);
-    
+
     // If it's a variable product, create variants
     if (productType === 'variable' && variants && variants.length > 0) {
       // Prepare variant data with numeric values
@@ -182,7 +186,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        
+
         return {
           id: uuidv4(),
           productId: newProduct.id,
@@ -203,11 +207,11 @@ export async function POST(req: NextRequest) {
           numericValueOfVariationAttribute: numericValue ? numericValue.toString() : null,
         };
       });
-      
+
       const variantData = await Promise.all(variantDataPromises);
       await db.insert(productVariants).values(variantData);
     }
-    
+
     // Create product addons for any product type that has addons
     if (addons && addons.length > 0) {
       const addonData = addons.map((addon: any) => ({
@@ -219,18 +223,18 @@ export async function POST(req: NextRequest) {
         sortOrder: addon.sortOrder || 0,
         isActive: addon.isActive !== undefined ? addon.isActive : true,
       }));
-      
+
       await db.insert(productAddons).values(addonData);
     }
-    
+
     // Handle product tags (new tag system)
     if (selectedTags && selectedTags.length > 0) {
       const tagAssignments = [];
-      
+
       for (let i = 0; i < selectedTags.length; i++) {
         const selectedTag = selectedTags[i];
         let tagId = selectedTag.tagId;
-        
+
         // If this is a custom tag (has customValue and temporary ID), create the tag first
         if (selectedTag.customValue && selectedTag.tagId.startsWith('custom_')) {
           // Check if a tag with this custom value already exists in the group
@@ -240,14 +244,14 @@ export async function POST(req: NextRequest) {
               eq(tags.name, selectedTag.customValue)
             ),
           });
-          
+
           if (existingTag) {
             tagId = existingTag.id;
           } else {
             // Create new custom tag
             const newTagId = nanoid();
             const slug = selectedTag.customValue.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').trim('-');
-            
+
             await db.insert(tags).values({
               id: newTagId,
               name: selectedTag.customValue,
@@ -258,11 +262,11 @@ export async function POST(req: NextRequest) {
               isActive: true,
               sortOrder: 0,
             });
-            
+
             tagId = newTagId;
           }
         }
-        
+
         // Create product tag assignment
         tagAssignments.push({
           id: nanoid(),
@@ -272,12 +276,12 @@ export async function POST(req: NextRequest) {
           sortOrder: i,
         });
       }
-      
+
       if (tagAssignments.length > 0) {
         await db.insert(productTags).values(tagAssignments);
       }
     }
-    
+
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
     console.error('Error creating product:', error);

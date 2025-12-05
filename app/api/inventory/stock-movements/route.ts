@@ -51,7 +51,7 @@ export async function GET() {
       processedBy: movement.processedBy,
       createdAt: movement.createdAt?.toISOString() || new Date().toISOString(),
     }));
-    
+
     return NextResponse.json(formattedMovements);
   } catch (error) {
     console.error('Error fetching stock movements:', error);
@@ -61,22 +61,22 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { 
-      productId, 
-      variantId, 
-      movementType, 
-      quantity, 
+    const {
+      productId,
+      variantId,
+      movementType,
+      quantity,
       // Weight-based fields
       weightQuantity,
       weightUnit,
-      reason, 
-      location, 
-      reference, 
+      reason,
+      location,
+      reference,
       notes,
       costPrice,
-      supplier 
+      supplier
     } = await req.json();
-    
+
     // Get product to determine stock management type
     const product = await db.query.products.findFirst({
       where: eq(products.id, productId),
@@ -105,11 +105,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Find existing inventory record
+    // For weight-based variable products, ALWAYS look up inventory at product level (variantId = null)
+    // For other products, use the provided variantId
     let whereConditions = [eq(productInventory.productId, productId)];
-    
-    if (variantId) {
+
+    // Determine if this is a weight-based variable product
+    const productDetails = await db.query.products.findFirst({
+      where: eq(products.id, productId),
+      columns: { productType: true }
+    });
+
+    const isWeightBasedVariable = isWeightBased && productDetails?.productType === 'variable';
+
+    if (isWeightBasedVariable) {
+      // For weight-based variable products, always use product-level inventory
+      whereConditions.push(isNull(productInventory.variantId));
+    } else if (variantId) {
+      // For other variable products, use variant-level inventory
       whereConditions.push(eq(productInventory.variantId, variantId));
     } else {
+      // For simple products, use product-level inventory
       whereConditions.push(isNull(productInventory.variantId));
     }
 
@@ -118,7 +133,7 @@ export async function POST(req: NextRequest) {
       .from(productInventory)
       .where(and(...whereConditions))
       .limit(1);
-    
+
     let newQuantity = 0;
     let newWeightQuantity = 0;
     let inventoryId = '';
@@ -129,11 +144,11 @@ export async function POST(req: NextRequest) {
     if (existingInventory.length > 0) {
       const current = existingInventory[0];
       inventoryId = current.id;
-      
+
       if (isWeightBased) {
         // Handle weight-based movements
         const currentWeight = parseFloat(current.weightQuantity || '0');
-        
+
         switch (movementType) {
           case 'in':
             newWeightQuantity = currentWeight + weightInGrams;
@@ -201,11 +216,12 @@ export async function POST(req: NextRequest) {
 
       if (isWeightBased) {
         newWeightQuantity = movementType === 'in' ? weightInGrams : (movementType === 'adjustment' ? weightInGrams : 0);
-        
+
         await db.insert(productInventory).values({
           id: inventoryId,
           productId,
-          variantId: variantId || null,
+          // For weight-based variable products, always set variantId to null
+          variantId: isWeightBasedVariable ? null : (variantId || null),
           // Set quantity fields to 0 for weight-based products
           quantity: 0,
           reservedQuantity: 0,
@@ -224,7 +240,7 @@ export async function POST(req: NextRequest) {
         });
       } else {
         newQuantity = movementType === 'in' ? quantity : (movementType === 'adjustment' ? quantity : 0);
-        
+
         await db.insert(productInventory).values({
           id: inventoryId,
           productId,
@@ -251,12 +267,13 @@ export async function POST(req: NextRequest) {
     const movementId = uuidv4();
     const previousQuantity = existingInventory.length > 0 ? existingInventory[0].quantity : 0;
     const previousWeightQuantity = existingInventory.length > 0 ? parseFloat(existingInventory[0].weightQuantity || '0') : 0;
-    
+
     await db.insert(stockMovements).values({
       id: movementId,
       inventoryId,
       productId,
-      variantId: variantId || null,
+      // For weight-based variable products, always set variantId to null in movement records
+      variantId: isWeightBasedVariable ? null : (variantId || null),
       movementType,
       // Quantity-based fields
       quantity: quantity || 0,
@@ -275,12 +292,13 @@ export async function POST(req: NextRequest) {
       processedBy: null, // TODO: Add current admin user ID when authentication is implemented
       createdAt: new Date(),
     });
-    
+
     const movementRecord = {
       id: movementId,
       inventoryId,
       productId,
-      variantId: variantId || null,
+      // For weight-based variable products, always return null for variantId
+      variantId: isWeightBasedVariable ? null : (variantId || null),
       movementType,
       // Quantity-based fields
       quantity: quantity || 0,
@@ -299,7 +317,7 @@ export async function POST(req: NextRequest) {
       supplier: supplier || null,
       createdAt: new Date(),
     };
-    
+
     return NextResponse.json(movementRecord, { status: 201 });
   } catch (error) {
     console.error('Error creating stock movement:', error);
@@ -310,21 +328,21 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { ids } = await req.json();
-    
+
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: 'Array of stock movement IDs is required' }, { status: 400 });
     }
-    
+
     // Note: Deleting stock movements is generally not recommended in production
     // as it breaks the audit trail. Consider adding a "deleted" flag instead.
     // However, for admin purposes, we'll allow it with a warning.
-    
+
     // Delete all stock movements with the provided IDs
     const deletedMovements = await db
       .delete(stockMovements)
       .where(inArray(stockMovements.id, ids));
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       message: `Successfully deleted ${ids.length} stock movement(s)`,
       deletedCount: ids.length,
       warning: 'Deleting stock movements removes audit trail history. Use with caution.'
