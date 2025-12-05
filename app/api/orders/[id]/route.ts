@@ -33,17 +33,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .from(orderItems)
       .where(eq(orderItems.orderId, orderId));
 
-    // Parse addons JSON for each item
-    const itemsWithParsedAddons = items.map(item => ({
+    // Drizzle automatically parses JSON columns, no need to manually parse
+    const itemsWithAddons = items.map(item => ({
       ...item,
-      addons: item.addons ? JSON.parse(item.addons as string) : null
+      addons: item.addons || null
     }));
 
     const order = {
       ...orderData[0].order,
       user: orderData[0].user,
       pickupLocation: orderData[0].pickupLocation,
-      items: itemsWithParsedAddons
+      items: itemsWithAddons
     };
 
     return NextResponse.json(order);
@@ -57,7 +57,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id: orderId } = await params;
     const body = await req.json();
-    
+
     const {
       status,
       paymentStatus,
@@ -119,7 +119,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const newShipping = shippingAmount !== undefined ? shippingAmount : Number(order.shippingAmount);
       const newDiscount = discountAmount !== undefined ? discountAmount : Number(order.discountAmount);
       const newPointsDiscount = pointsDiscountAmount !== undefined ? pointsDiscountAmount : Number(order.pointsDiscountAmount);
-      
+
       // Recalculate: subtotal - discount - points discount + tax + shipping
       const subtotalAfterDiscounts = Number(order.subtotal) - newDiscount - newPointsDiscount;
       newTotalAmount = Math.max(0, subtotalAfterDiscounts + Number(order.taxAmount || 0) + newShipping);
@@ -157,18 +157,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (pointsToRedeem !== undefined && order.userId && pointsToRedeem > 0) {
       const currentPointsRedeemed = Number(order.pointsToRedeem) || 0;
       const pointsDifference = pointsToRedeem - currentPointsRedeemed;
-      
+
       if (pointsDifference !== 0) {
         console.log(`\n=== POINTS REDEMPTION UPDATE ===`);
         console.log(`Order: ${order.orderNumber}, UserId: ${order.userId}, Points difference: ${pointsDifference}, New discount: ${pointsDiscountAmount}`);
-        
+
         try {
           if (pointsDifference > 0) {
             // Additional points being redeemed
             await redeemLoyaltyPointsForEdit(
-              order.userId, 
-              orderId, 
-              pointsDifference, 
+              order.userId,
+              orderId,
+              pointsDifference,
               (Number(pointsDiscountAmount) || 0) - (Number(order.pointsDiscountAmount) || 0),
               `Additional redemption for order #${order.orderNumber}`
             );
@@ -265,7 +265,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Delete order items first (foreign key constraint)
     await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
-    
+
     // Delete the order
     await db.delete(orders).where(eq(orders.id, orderId));
 
@@ -298,7 +298,7 @@ async function handleStockManagement(
     const isWeightBased = isWeightBasedProduct(product.stockManagementType || 'quantity');
 
     const inventoryConditions = [eq(productInventory.productId, item.productId)];
-    
+
     if (item.variantId) {
       inventoryConditions.push(eq(productInventory.variantId, item.variantId));
     } else {
@@ -440,7 +440,7 @@ async function restoreInventoryFromOrder(orderItems: any[], orderNumber: string)
     const isWeightBased = isWeightBasedProduct(product.stockManagementType || 'quantity');
 
     const inventoryConditions = [eq(productInventory.productId, item.productId)];
-    
+
     if (item.variantId) {
       inventoryConditions.push(eq(productInventory.variantId, item.variantId));
     } else {
@@ -462,7 +462,7 @@ async function restoreInventoryFromOrder(orderItems: any[], orderNumber: string)
       const currentReservedWeight = parseFloat(inventory.reservedWeight || '0');
       const currentWeightQuantity = parseFloat(inventory.weightQuantity || '0');
       const itemWeight = parseFloat(item.weightQuantity || '0');
-      
+
       const newWeightQuantity = currentWeightQuantity + itemWeight;
       const newAvailableWeight = newWeightQuantity - currentReservedWeight;
 
@@ -554,7 +554,7 @@ async function updateLoyaltyPointsStatus(userId: string, orderId: string, previo
   // Handle status change to completed - activate pending points
   if (newStatus === 'completed' && previousStatus !== 'completed') {
     console.log('Activating pending points for completed order');
-    
+
     try {
       // Get pending points for this order
       const pendingHistory = await db

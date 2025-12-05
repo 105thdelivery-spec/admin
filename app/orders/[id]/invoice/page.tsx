@@ -2,15 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import CurrencySymbol from '../../../components/CurrencySymbol';
-import { 
-  formatWeightAuto, 
-  isWeightBasedProduct 
+import {
+  formatWeightAuto,
+  isWeightBasedProduct
 } from '@/utils/weightUtils';
 
 export default function OrderInvoice() {
   const params = useParams();
   const orderId = params.id as string;
-  
+
   const [order, setOrder] = useState<any>(null);
   const [addons, setAddons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,11 +25,11 @@ export default function OrderInvoice() {
     try {
       setLoading(true);
       const orderRes = await fetch(`/api/orders/${orderId}`);
-      
+
       if (!orderRes.ok) throw new Error('Order not found');
-      
+
       const orderData = await orderRes.json();
-      
+
       // Process items to add weight-based information
       if (orderData.items) {
         orderData.items = orderData.items.map((item: any) => {
@@ -45,7 +45,7 @@ export default function OrderInvoice() {
           };
         });
       }
-      
+
       setOrder(orderData);
     } catch (err: any) {
       setError(err.message);
@@ -86,7 +86,7 @@ export default function OrderInvoice() {
 
   const formatAmount = (amount: string | number) => {
     const numAmount = Number(amount);
-    
+
     // Handle NaN, undefined, null, or invalid values
     if (isNaN(numAmount) || amount === null || amount === undefined || typeof numAmount !== 'number') {
       return (
@@ -95,7 +95,7 @@ export default function OrderInvoice() {
         </span>
       );
     }
-    
+
     return (
       <span className="flex items-center gap-1">
         <CurrencySymbol />{numAmount.toFixed(2)}
@@ -105,24 +105,24 @@ export default function OrderInvoice() {
 
   const parseAddons = (addonsData: any) => {
     if (!addonsData) return [];
-    
+
     try {
       // If it's already an array, return it
       if (Array.isArray(addonsData)) {
         return addonsData;
       }
-      
+
       // If it's a string, try to parse it
       if (typeof addonsData === 'string') {
         const parsed = JSON.parse(addonsData);
         return Array.isArray(parsed) ? parsed : [];
       }
-      
+
       // If it's an object but not an array, wrap it in an array
       if (typeof addonsData === 'object') {
         return [addonsData];
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error parsing addons:', error);
@@ -135,7 +135,7 @@ export default function OrderInvoice() {
     if (addon.addonTitle) return addon.addonTitle;
     if (addon.title) return addon.title;
     if (addon.name) return addon.name;
-    
+
     // If no title in stored data, try to find it in the addons table
     if (addon.addonId && addons.length > 0) {
       const addonFromTable = addons.find(a => a.id === addon.addonId);
@@ -143,7 +143,7 @@ export default function OrderInvoice() {
         return addonFromTable.title;
       }
     }
-    
+
     // Fallback to generic name
     return `Addon ${index + 1}`;
   };
@@ -168,6 +168,36 @@ export default function OrderInvoice() {
       }
     }
     return null;
+  };
+
+  const getVariantAttributesFromAddons = (addonsData: any) => {
+    if (!addonsData) return null;
+
+    try {
+      let parsed = addonsData;
+
+      // Handle double-encoded data (legacy orders)
+      if (typeof addonsData === 'string') {
+        parsed = JSON.parse(addonsData);
+      }
+
+      // If still a string after first parse, parse again (double-encoded)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
+
+      // Extract selectedAttributes
+      if (parsed && parsed.selectedAttributes && Object.keys(parsed.selectedAttributes).length > 0) {
+        return Object.entries(parsed.selectedAttributes)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing variant attributes:', error);
+      return null;
+    }
   };
 
   if (loading) return <div className="p-8">Loading invoice...</div>;
@@ -224,7 +254,7 @@ export default function OrderInvoice() {
                   <p className="text-gray-600 mt-2">Invoice #{order.orderNumber}</p>
                 </div>
                 <div className="text-right">
-                 
+
                 </div>
               </div>
             </div>
@@ -322,6 +352,13 @@ export default function OrderInvoice() {
                                 {item.variantTitle && (
                                   <div className="text-sm text-gray-500">{item.variantTitle}</div>
                                 )}
+                                {/* Show variant attributes from addons column if variantTitle is not available */}
+                                {!item.variantTitle && (() => {
+                                  const variantAttrs = getVariantAttributesFromAddons(item.addons);
+                                  return variantAttrs && (
+                                    <div className="text-sm text-purple-600"> {variantAttrs}</div>
+                                  );
+                                })()}
                                 {item.isWeightBased && item.weightQuantity && (
                                   <div className="text-sm text-blue-600">
                                     ⚖️ Weight: {formatWeightAuto(item.weightQuantity).formattedString}
@@ -390,58 +427,58 @@ export default function OrderInvoice() {
                                     <div className="font-medium mb-2 text-gray-700">🧩 Addons:</div>
                                     <div className="space-y-2">
                                       {parsedAddons.map((addon: any, addonIndex: number) => {
-                                      // Ensure addon has required properties
-                                      const safeAddon = {
-                                        addonId: addon.addonId || '',
-                                        addonTitle: addon.addonTitle || addon.title || addon.name || `Addon ${addonIndex + 1}`,
-                                        price: Number(addon.price) || 0,
-                                        quantity: Number(addon.quantity) || 1
-                                      };
-                                      
-                                      const addonDescription = getAddonDescription(addon);
-                                      const addonImage = getAddonImage(addon);
-                                      return (
-                                        <div key={addonIndex} className="flex items-start justify-between">
-                                          <div className="flex items-start gap-2 flex-1">
-                                            {addonImage && (
-                                              <img 
-                                                src={addonImage} 
-                                                alt={safeAddon.addonTitle}
-                                                className="w-6 h-6 object-cover rounded"
-                                              />
-                                            )}
-                                            <div className="flex-1">
-                                              <div className="font-medium text-gray-700">
-                                                • {safeAddon.addonTitle} (x{safeAddon.quantity})
-                                              </div>
-                                              {addonDescription && (
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                  {addonDescription}
-                                                </div>
+                                        // Ensure addon has required properties
+                                        const safeAddon = {
+                                          addonId: addon.addonId || '',
+                                          addonTitle: addon.addonTitle || addon.title || addon.name || `Addon ${addonIndex + 1}`,
+                                          price: Number(addon.price) || 0,
+                                          quantity: Number(addon.quantity) || 1
+                                        };
+
+                                        const addonDescription = getAddonDescription(addon);
+                                        const addonImage = getAddonImage(addon);
+                                        return (
+                                          <div key={addonIndex} className="flex items-start justify-between">
+                                            <div className="flex items-start gap-2 flex-1">
+                                              {addonImage && (
+                                                <img
+                                                  src={addonImage}
+                                                  alt={safeAddon.addonTitle}
+                                                  className="w-6 h-6 object-cover rounded"
+                                                />
                                               )}
+                                              <div className="flex-1">
+                                                <div className="font-medium text-gray-700">
+                                                  • {safeAddon.addonTitle} (x{safeAddon.quantity})
+                                                </div>
+                                                {addonDescription && (
+                                                  <div className="text-xs text-gray-500 mt-1">
+                                                    {addonDescription}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="text-right ml-4">
+                                              <div className="font-medium text-gray-700">
+                                                {formatAmount(safeAddon.price)} each
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                Total: {formatAmount(safeAddon.price * safeAddon.quantity)}
+                                              </div>
                                             </div>
                                           </div>
-                                          <div className="text-right ml-4">
-                                            <div className="font-medium text-gray-700">
-                                              {formatAmount(safeAddon.price)} each
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              Total: {formatAmount(safeAddon.price * safeAddon.quantity)}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                        <div className="flex justify-between text-sm font-medium text-gray-700 border-t pt-2 mt-2">
-                                          <span>Addons subtotal per product:</span>
-                                          <span>{formatAmount(parsedAddons.reduce((sum: number, addon: any) => sum + ((Number(addon.price) || 0) * (Number(addon.quantity) || 1)), 0))}</span>
-                                        </div>
+                                        );
+                                      })}
+                                      <div className="flex justify-between text-sm font-medium text-gray-700 border-t pt-2 mt-2">
+                                        <span>Addons subtotal per product:</span>
+                                        <span>{formatAmount(parsedAddons.reduce((sum: number, addon: any) => sum + ((Number(addon.price) || 0) * (Number(addon.quantity) || 1)), 0))}</span>
                                       </div>
                                     </div>
-                                  </td>
-                                </tr>
-                              );
-                            })()}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })()}
                         </React.Fragment>
                       ))
                     ) : (
@@ -464,28 +501,28 @@ export default function OrderInvoice() {
                     <span>Subtotal:</span>
                     <span>{formatAmount(order.subtotal)}</span>
                   </div>
-                  
+
                   {parseFloat(order.taxAmount) > 0 && (
                     <div className="flex justify-between py-2">
                       <span>Tax:</span>
                       <span>{formatAmount(order.taxAmount)}</span>
                     </div>
                   )}
-                  
+
                   {parseFloat(order.shippingAmount) > 0 && (
                     <div className="flex justify-between py-2">
                       <span>Shipping:</span>
                       <span>{formatAmount(order.shippingAmount)}</span>
                     </div>
                   )}
-                  
+
                   {parseFloat(order.discountAmount) > 0 && (
                     <div className="flex justify-between py-2 text-green-600">
                       <span>Discount:</span>
                       <span>-{formatAmount(order.discountAmount)}</span>
                     </div>
                   )}
-                  
+
                   <div className="border-t-2 border-gray-300 pt-2">
                     <div className="flex justify-between py-2 text-xl font-bold">
                       <span>Total:</span>
@@ -496,7 +533,7 @@ export default function OrderInvoice() {
               </div>
             </div>
 
-            
+
           </div>
         </div>
       </div>

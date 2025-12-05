@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import CurrencySymbol from '../../../components/CurrencySymbol';
-import { 
-  formatWeightAuto, 
-  isWeightBasedProduct 
+import {
+  formatWeightAuto,
+  isWeightBasedProduct
 } from '@/utils/weightUtils';
 
 interface PickupLocation {
@@ -32,11 +32,11 @@ interface Order {
   totalAmount: number;
   currency: string;
   notes?: string;
-  
+
   // Order type and pickup location fields
   orderType?: string;
   pickupLocationId?: string;
-  
+
   // Billing address
   billingFirstName?: string;
   billingLastName?: string;
@@ -46,7 +46,7 @@ interface Order {
   billingState?: string;
   billingPostalCode?: string;
   billingCountry?: string;
-  
+
   // Shipping address
   shippingFirstName?: string;
   shippingLastName?: string;
@@ -56,14 +56,14 @@ interface Order {
   shippingState?: string;
   shippingPostalCode?: string;
   shippingCountry?: string;
-  
+
   shippingMethod?: string;
   trackingNumber?: string;
   cancelReason?: string;
-  
+
   createdAt: string;
   updatedAt: string;
-  
+
   items?: OrderItem[];
   user?: {
     id: string;
@@ -109,7 +109,7 @@ export default function EditOrder() {
   const [stockManagementEnabled, setStockManagementEnabled] = useState(true);
   const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
-  
+
   // Loyalty points state
   const [loyaltySettings, setLoyaltySettings] = useState({
     enabled: false,
@@ -125,7 +125,7 @@ export default function EditOrder() {
     totalPointsEarned: 0,
     totalPointsRedeemed: 0
   });
-  
+
   // Edit states
   const [editData, setEditData] = useState({
     status: '',
@@ -197,11 +197,11 @@ export default function EditOrder() {
     const pathParts = window.location.pathname.split('/');
     const id = pathParts[pathParts.length - 1];
     setOrderId(id);
-    
+
     if (id) {
       fetchOrder(id);
     }
-    
+
     // Fetch stock management setting, addons, drivers, pickup locations, and loyalty settings
     fetchStockManagementSetting();
     fetchAddons();
@@ -303,12 +303,12 @@ export default function EditOrder() {
 
     // Calculate discount amount based on points
     const discountAmount = pointsToRedeem * loyaltySettings.redemptionValue;
-    
+
     // Get current totals to check max redemption limit
     const currentSubtotal = Number(order?.subtotal) || 0;
     const currentDiscount = editData.discountAmount || 0;
     const maxAllowedDiscount = (currentSubtotal - currentDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
-    
+
     const finalDiscountAmount = Math.min(discountAmount, maxAllowedDiscount);
     const finalPointsToRedeem = Math.floor(finalDiscountAmount / loyaltySettings.redemptionValue);
 
@@ -335,7 +335,7 @@ export default function EditOrder() {
       const currentDiscount = editData.discountAmount || 0;
       const maxAllowedDiscount = (currentSubtotal - currentDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
       const maxPointsDiscount = customerPoints.availablePoints * loyaltySettings.redemptionValue;
-      
+
       const finalDiscountAmount = Math.min(maxAllowedDiscount, maxPointsDiscount);
       const finalPointsToRedeem = Math.floor(finalDiscountAmount / loyaltySettings.redemptionValue);
 
@@ -355,9 +355,9 @@ export default function EditOrder() {
       if (!response.ok) {
         throw new Error('Order not found');
       }
-      
+
       const orderData = await response.json();
-      
+
       // Process items to add weight-based information
       if (orderData.items) {
         orderData.items = orderData.items.map((item: any) => {
@@ -373,9 +373,9 @@ export default function EditOrder() {
           };
         });
       }
-      
+
       setOrder(orderData);
-      
+
       // Initialize edit data with current order values
       setEditData({
         status: orderData.status,
@@ -442,11 +442,11 @@ export default function EditOrder() {
       // Refresh order data
       await fetchOrder(orderId);
       //alert('Order updated successfully!');
-      
+
       // Redirect to orders listing page
-      
-        router.push('/orders');
-      
+
+      router.push('/orders');
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -495,10 +495,10 @@ export default function EditOrder() {
     );
   };
 
-    const formatCurrency = (amount: any) => {
+  const formatCurrency = (amount: any) => {
     // Convert to number and handle all edge cases
     const numAmount = Number(amount);
-    
+
     // Handle NaN, undefined, null, or invalid values
     if (isNaN(numAmount) || amount === null || amount === undefined || typeof numAmount !== 'number') {
       return (
@@ -507,7 +507,7 @@ export default function EditOrder() {
         </span>
       );
     }
-    
+
     return (
       <span className="flex items-center gap-1">
         <CurrencySymbol />{numAmount.toFixed(2)}
@@ -517,24 +517,24 @@ export default function EditOrder() {
 
   const parseAddons = (addonsData: any) => {
     if (!addonsData) return [];
-    
+
     try {
       // If it's already an array, return it
       if (Array.isArray(addonsData)) {
         return addonsData;
       }
-      
+
       // If it's a string, try to parse it
       if (typeof addonsData === 'string') {
         const parsed = JSON.parse(addonsData);
         return Array.isArray(parsed) ? parsed : [];
       }
-      
+
       // If it's an object but not an array, wrap it in an array
       if (typeof addonsData === 'object') {
         return [addonsData];
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error parsing addons:', error);
@@ -547,7 +547,7 @@ export default function EditOrder() {
     if (addon.addonTitle) return addon.addonTitle;
     if (addon.title) return addon.title;
     if (addon.name) return addon.name;
-    
+
     // If no title in stored data, try to find it in the addons table
     if (addon.addonId && addons.length > 0) {
       const addonFromTable = addons.find(a => a.id === addon.addonId);
@@ -555,7 +555,7 @@ export default function EditOrder() {
         return addonFromTable.title;
       }
     }
-    
+
     // Fallback to generic name
     return `Addon ${index + 1}`;
   };
@@ -582,20 +582,50 @@ export default function EditOrder() {
     return null;
   };
 
+  const getVariantAttributesFromAddons = (addonsData: any) => {
+    if (!addonsData) return null;
+
+    try {
+      let parsed = addonsData;
+
+      // Handle double-encoded data (legacy orders)
+      if (typeof addonsData === 'string') {
+        parsed = JSON.parse(addonsData);
+      }
+
+      // If still a string after first parse, parse again (double-encoded)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
+
+      // Extract selectedAttributes
+      if (parsed && parsed.selectedAttributes && Object.keys(parsed.selectedAttributes).length > 0) {
+        return Object.entries(parsed.selectedAttributes)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing variant attributes:', error);
+      return null;
+    }
+  };
+
   const calculateNewTotal = () => {
     if (!order) return 0;
-    
+
     // Ensure all values are numbers
     const subtotal = Number(order.subtotal) || 0;
     const taxAmount = Number(order.taxAmount) || 0;
     const shippingAmount = Number(editData.shippingAmount) || 0;
     const discountAmount = Number(editData.discountAmount) || 0;
     const pointsDiscountAmount = Number(editData.pointsDiscountAmount) || 0;
-    
+
     // Calculate: subtotal - discount - points discount + tax + shipping
     const discountedSubtotal = subtotal - discountAmount - pointsDiscountAmount;
     const total = discountedSubtotal + taxAmount + shippingAmount;
-    
+
     return Math.max(0, total); // Ensure total is never negative
   };
 
@@ -603,23 +633,23 @@ export default function EditOrder() {
     if (!loyaltySettings.enabled || !order?.userId) {
       return 0;
     }
-    
+
     const subtotal = Number(order.subtotal) || 0;
     const taxAmount = Number(order.taxAmount) || 0;
     const shippingAmount = Number(editData.shippingAmount) || 0;
     const discountAmount = Number(editData.discountAmount) || 0;
     const pointsDiscountAmount = Number(editData.pointsDiscountAmount) || 0;
-    
+
     // Calculate new total for points calculation
     const discountedSubtotal = subtotal - discountAmount - pointsDiscountAmount;
     const newTotal = Math.max(0, discountedSubtotal + taxAmount + shippingAmount);
-    
+
     const baseAmount = loyaltySettings.earningBasis === 'total' ? newTotal : subtotal;
-    
+
     if (baseAmount < loyaltySettings.minimumOrder) {
       return 0;
     }
-    
+
     return Math.floor(baseAmount * loyaltySettings.earningRate);
   };
 
@@ -690,7 +720,7 @@ export default function EditOrder() {
           {/* Order Status */}
           <div className="bg-white border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4">📊 Order Status</h3>
-            
+
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -826,7 +856,7 @@ export default function EditOrder() {
                 </div>
               </div>
 
-              
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -836,7 +866,7 @@ export default function EditOrder() {
                     step="0.01"
                     min="0"
                     value={editData.discountAmount}
-                    onChange={(e) => setEditData({...editData, discountAmount: Number(e.target.value) || 0})}
+                    onChange={(e) => setEditData({ ...editData, discountAmount: Number(e.target.value) || 0 })}
                     className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -847,7 +877,7 @@ export default function EditOrder() {
                     <input
                       type="text"
                       value={editData.cancelReason}
-                      onChange={(e) => setEditData({...editData, cancelReason: e.target.value})}
+                      onChange={(e) => setEditData({ ...editData, cancelReason: e.target.value })}
                       className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
                       placeholder="Reason for cancellation"
                       required
@@ -860,7 +890,7 @@ export default function EditOrder() {
                 <label className="block text-gray-700 mb-2">Order Notes</label>
                 <textarea
                   value={editData.notes}
-                  onChange={(e) => setEditData({...editData, notes: e.target.value})}
+                  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
                   className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
                   rows={3}
                   placeholder="Internal notes about this order..."
@@ -890,7 +920,7 @@ export default function EditOrder() {
           {loyaltySettings.enabled && order?.userId && customerPoints.availablePoints > 0 && (
             <div className="bg-white border rounded-lg p-6">
               <h3 className="text-lg font-semibold mb-4">🎁 Loyalty Points</h3>
-              
+
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-purple-800">Available Points:</span>
@@ -913,14 +943,12 @@ export default function EditOrder() {
                   <button
                     type="button"
                     onClick={handleUseAllPoints}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                      editData.useAllPoints ? 'bg-purple-600' : 'bg-gray-200'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${editData.useAllPoints ? 'bg-purple-600' : 'bg-gray-200'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        editData.useAllPoints ? 'translate-x-6' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editData.useAllPoints ? 'translate-x-6' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                 </div>
@@ -986,7 +1014,7 @@ export default function EditOrder() {
           {/* Order Items */}
           <div className="bg-white border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4">📦 Order Items</h3>
-            
+
             {order.items && order.items.length > 0 ? (
               <div className="space-y-3">
                 {order.items.map((item, index) => (
@@ -994,8 +1022,8 @@ export default function EditOrder() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         {item.productImage && (
-                          <img 
-                            src={item.productImage} 
+                          <img
+                            src={item.productImage}
                             alt={item.productName}
                             className="w-12 h-12 object-cover rounded"
                           />
@@ -1005,6 +1033,13 @@ export default function EditOrder() {
                           {item.variantTitle && (
                             <div className="text-sm text-gray-600">{item.variantTitle}</div>
                           )}
+                          {/* Show variant attributes from addons column if variantTitle is not available */}
+                          {!item.variantTitle && (() => {
+                            const variantAttrs = getVariantAttributesFromAddons(item.addons);
+                            return variantAttrs && (
+                              <div className="text-sm text-purple-600">📦 {variantAttrs}</div>
+                            );
+                          })()}
                           {item.sku && (
                             <div className="text-sm text-gray-500">SKU: {item.sku}</div>
                           )}
@@ -1052,7 +1087,7 @@ export default function EditOrder() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Display addons for group products */}
                     {(() => {
                       const parsedAddons = parseAddons(item.addons);
@@ -1061,48 +1096,48 @@ export default function EditOrder() {
                           <div className="text-sm font-medium text-gray-700 mb-2">🧩 Addons ({parsedAddons.length}):</div>
                           <div className="space-y-2">
                             {parsedAddons.map((addon, addonIndex) => {
-                            // Ensure addon has required properties
-                            const safeAddon = {
-                              addonId: addon.addonId || '',
-                              addonTitle: addon.addonTitle || addon.title || addon.name || `Addon ${addonIndex + 1}`,
-                              price: Number(addon.price) || 0,
-                              quantity: Number(addon.quantity) || 1
-                            };
-                            
-                            const addonDescription = getAddonDescription(addon);
-                            const addonImage = getAddonImage(addon);
-                            return (
-                              <div key={addonIndex} className="flex items-start justify-between text-sm">
-                                <div className="flex items-start gap-2 flex-1">
-                                  {addonImage && (
-                                    <img 
-                                      src={addonImage} 
-                                      alt={safeAddon.addonTitle}
-                                      className="w-6 h-6 object-cover rounded"
-                                    />
-                                  )}
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-700">
-                                      • {safeAddon.addonTitle} (x{safeAddon.quantity})
-                                    </div>
-                                    {addonDescription && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {addonDescription}
-                                      </div>
+                              // Ensure addon has required properties
+                              const safeAddon = {
+                                addonId: addon.addonId || '',
+                                addonTitle: addon.addonTitle || addon.title || addon.name || `Addon ${addonIndex + 1}`,
+                                price: Number(addon.price) || 0,
+                                quantity: Number(addon.quantity) || 1
+                              };
+
+                              const addonDescription = getAddonDescription(addon);
+                              const addonImage = getAddonImage(addon);
+                              return (
+                                <div key={addonIndex} className="flex items-start justify-between text-sm">
+                                  <div className="flex items-start gap-2 flex-1">
+                                    {addonImage && (
+                                      <img
+                                        src={addonImage}
+                                        alt={safeAddon.addonTitle}
+                                        className="w-6 h-6 object-cover rounded"
+                                      />
                                     )}
+                                    <div className="flex-1">
+                                      <div className="font-medium text-gray-700">
+                                        • {safeAddon.addonTitle} (x{safeAddon.quantity})
+                                      </div>
+                                      {addonDescription && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {addonDescription}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right ml-4">
+                                    <div className="font-medium text-gray-700">
+                                      {formatCurrency(safeAddon.price)} each
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Total: {formatCurrency(safeAddon.price * safeAddon.quantity)}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="text-right ml-4">
-                                  <div className="font-medium text-gray-700">
-                                    {formatCurrency(safeAddon.price)} each
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    Total: {formatCurrency(safeAddon.price * safeAddon.quantity)}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                             <div className="flex justify-between text-sm font-medium text-gray-700 border-t pt-2 mt-2">
                               <span>Addons subtotal per product:</span>
                               <span>{formatCurrency(parsedAddons.reduce((sum, addon) => sum + ((Number(addon.price) || 0) * (Number(addon.quantity) || 1)), 0))}</span>
@@ -1124,7 +1159,7 @@ export default function EditOrder() {
           {/* Customer Information */}
           <div className="bg-white border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4">👤 Customer Information</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="font-medium text-gray-700 mb-3">Contact</h4>
@@ -1174,7 +1209,7 @@ export default function EditOrder() {
         <div className="lg:col-span-1">
           <div className="bg-white border rounded-lg p-6 sticky top-4">
             <h3 className="text-lg font-semibold mb-4">📊 Order Summary</h3>
-            
+
             {/* Current Status */}
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center">
@@ -1197,31 +1232,31 @@ export default function EditOrder() {
                 <span>Subtotal:</span>
                 <span>{formatCurrency(order.subtotal)}</span>
               </div>
-              
+
               <div className="flex justify-between">
                 <span>Tax:</span>
                 <span>{formatCurrency(order.taxAmount)}</span>
               </div>
-              
+
               <div className="flex justify-between">
                 <span>Shipping:</span>
                 <span>{formatCurrency(editData.shippingAmount)}</span>
               </div>
-              
+
               {editData.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount:</span>
                   <span>-{formatCurrency(editData.discountAmount)}</span>
                 </div>
               )}
-              
+
               {editData.pointsDiscountAmount > 0 && (
                 <div className="flex justify-between text-purple-600">
                   <span>Points Discount ({editData.pointsToRedeem} pts):</span>
                   <span>-{formatCurrency(editData.pointsDiscountAmount)}</span>
                 </div>
               )}
-              
+
               <div className="border-t pt-3">
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total:</span>
@@ -1278,7 +1313,7 @@ export default function EditOrder() {
               <div className="text-sm text-gray-600">
                 Items: <strong>{order.items?.length || 0}</strong>
               </div>
-              
+
               {editData.status === 'cancelled' && order.status !== 'cancelled' && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded">
                   <div className="text-red-800 text-sm font-medium">
@@ -1296,7 +1331,7 @@ export default function EditOrder() {
                     ℹ️ Status Change Info
                   </div>
                   <div className="text-blue-600 text-sm">
-                    {stockManagementEnabled 
+                    {stockManagementEnabled
                       ? 'Confirming this order will validate and reserve inventory for all items. This action may fail if insufficient stock is available.'
                       : 'Confirming this order will not affect inventory levels since stock management is disabled.'
                     }
@@ -1310,7 +1345,7 @@ export default function EditOrder() {
                     💳 Payment Status Change Info
                   </div>
                   <div className="text-green-600 text-sm">
-                    {stockManagementEnabled 
+                    {stockManagementEnabled
                       ? 'Marking payment as paid will validate and reserve inventory for all items. This action may fail if insufficient stock is available.'
                       : 'Marking payment as paid will not affect inventory levels since stock management is disabled.'
                     }
@@ -1324,7 +1359,7 @@ export default function EditOrder() {
                     ✅ Status Change Info
                   </div>
                   <div className="text-green-600 text-sm">
-                    {stockManagementEnabled 
+                    {stockManagementEnabled
                       ? 'Marking as completed will finalize the order and permanently reduce inventory quantities.'
                       : 'Marking as completed will not affect inventory levels since stock management is disabled.'
                     }
