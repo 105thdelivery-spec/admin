@@ -19,11 +19,11 @@ export interface WeightDisplay {
  */
 export function formatWeight(value: number, displayUnit: WeightUnit = 'g'): WeightDisplay {
   let formattedValue: string;
-  
+
   // Format based on typical precision for each unit
   switch (displayUnit) {
     case 'g':
-      formattedValue = value.toFixed(0);
+      formattedValue = value.toFixed(1);
       break;
     case 'kg':
       formattedValue = value.toFixed(2);
@@ -37,7 +37,7 @@ export function formatWeight(value: number, displayUnit: WeightUnit = 'g'): Weig
     default:
       formattedValue = value.toString();
   }
-  
+
   return {
     displayValue: value,
     displayUnit,
@@ -93,7 +93,7 @@ export function isWeightBasedProduct(stockManagementType: string): boolean {
  * Get appropriate stock status for weight-based products
  */
 export function getWeightStockStatus(
-  availableWeight: number, 
+  availableWeight: number,
   reorderPoint: number
 ): { status: string; color: string } {
   if (availableWeight <= 0) {
@@ -140,23 +140,23 @@ export function parseWeightInput(input: string, defaultUnit: WeightUnit = 'g'): 
   if (!input || input.trim() === '') {
     return null;
   }
-  
+
   const trimmed = input.trim().toLowerCase();
-  
+
   // Extract number and unit
   const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(g|kg|lb|oz)?$/);
-  
+
   if (!match) {
     return null;
   }
-  
+
   const value = parseFloat(match[1]);
   let unit: WeightUnit = defaultUnit;
-  
+
   if (match[2]) {
     unit = match[2] as WeightUnit;
   }
-  
+
   return { value, unit };
 }
 
@@ -164,12 +164,12 @@ export function validateWeight(value: number): { isValid: boolean; error?: strin
   if (isNaN(value) || value < 0) {
     return { isValid: false, error: 'Weight must be a positive number' };
   }
-  
+
   return { isValid: true };
 }
 
 export function calculateWeightBasedPrice(
-  weight: number, 
+  weight: number,
   pricePerUnit: number
 ): number {
   return weight * pricePerUnit;

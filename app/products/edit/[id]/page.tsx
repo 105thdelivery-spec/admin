@@ -9,12 +9,12 @@ import VariantManager from '../../../../components/VariantManager';
 import useProductVariants from '../../../../hooks/useProductVariants';
 import { formatPrice, calculatePriceRange } from '../../../../utils/priceUtils';
 import { useWeightLabel } from '@/app/contexts/WeightLabelContext';
-import { 
-  normalizeVariationAttributes, 
-  normalizeVariantOptions, 
-  normalizeProductImageObjects, 
+import {
+  normalizeVariationAttributes,
+  normalizeVariantOptions,
+  normalizeProductImageObjects,
   normalizeProductTags,
-  deepParseJSON 
+  deepParseJSON
 } from '../../../../utils/jsonUtils';
 
 interface DatabaseVariationAttribute {
@@ -80,10 +80,10 @@ export default function EditProduct() {
   const params = useParams();
   const productId = params.id as string;
   const { weightLabel } = useWeightLabel();
-  
+
   // Use the custom hook for variants
   const { data: variantData, loading: variantsLoading, refetch: refetchVariants } = useProductVariants(productId);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -115,35 +115,34 @@ export default function EditProduct() {
     floweringTime: '',
     yieldAmount: ''
   });
-  
+
   // Variable product specific states
   const [availableAttributes, setAvailableAttributes] = useState<DatabaseVariationAttribute[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<VariationAttribute[]>([]);
   const [variantChanges, setVariantChanges] = useState<Record<string, Record<string, any>>>({});
-  
+
   // Group product specific states
   const [availableAddons, setAvailableAddons] = useState<Addon[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
-  
+
   // Tag selection state
   const [selectedTags, setSelectedTags] = useState<SelectedTag[]>([]);
-  
+
   const [images, setImages] = useState<{ url: string; sortOrder: number }[]>([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [explicitSubmit, setExplicitSubmit] = useState(false);
 
   useEffect(() => {
     fetchProductAndInitialData();
   }, [productId]);
 
-  
+
 
   useEffect(() => {
     if (formData.categoryId) {
@@ -163,19 +162,19 @@ export default function EditProduct() {
         fetch(`/api/product-addons?productId=${productId}`),
         fetch(`/api/product-tags?productId=${productId}`)
       ]);
-      
+
       const product = await productRes.json();
       const categoriesData = await categoriesRes.json();
       const attributesData = await attributesRes.json();
       const addonsData = await addonsRes.json();
       const productAddonsData = await productAddonsRes.json();
       const productTagsData = await productTagsRes.json();
-      
+
       // Parse product data using deep parsing utilities
       const productImages = normalizeProductImageObjects(product.images);
       const productTags = normalizeProductTags(product.tags);
       const productVariationAttributes = normalizeVariationAttributes(product.variationAttributes);
-      
+
       setFormData({
         name: product.name || '',
         description: product.description || '',
@@ -207,14 +206,14 @@ export default function EditProduct() {
         floweringTime: product.floweringTime || '',
         yieldAmount: product.yieldAmount || ''
       });
-      
+
       setImages(Array.isArray(productImages) ? productImages : []);
       setCategories(categoriesData);
       setAvailableAttributes(attributesData);
-      
+
       // Auto-select attributes based on existing variants and saved variation attributes
       const attributesFromVariants = new Map<string, Set<string>>();
-      
+
       // First, get attributes from existing variants if available
       if (variantData && variantData.variants.length > 0) {
         variantData.variants.forEach(variant => {
@@ -228,7 +227,7 @@ export default function EditProduct() {
           });
         });
       }
-      
+
       // If no variants but we have saved variation attributes, use those
       if (attributesFromVariants.size === 0 && productVariationAttributes.length > 0) {
         productVariationAttributes.forEach((attr: any) => {
@@ -253,7 +252,7 @@ export default function EditProduct() {
               image: undefined
             };
           });
-          
+
           autoSelectedAttributes.push({
             id: dbAttribute.id,
             name: dbAttribute.name,
@@ -263,12 +262,12 @@ export default function EditProduct() {
           });
         }
       });
-      
+
       setSelectedAttributes(autoSelectedAttributes);
-      
+
       // Set available addons
       setAvailableAddons(addonsData.filter((addon: any) => addon.isActive));
-      
+
       // Convert existing product addons to our format
       const formattedProductAddons = productAddonsData.map((item: any) => ({
         addonId: item.productAddon.addonId,
@@ -278,9 +277,9 @@ export default function EditProduct() {
         sortOrder: item.productAddon.sortOrder,
         isActive: item.productAddon.isActive
       }));
-      
+
       setSelectedAddons(formattedProductAddons);
-      
+
       // Convert existing product tags to our format
       const formattedProductTags = Array.isArray(productTagsData) ? productTagsData
         .filter((item: any) => item.tag && item.tag.id) // Filter out items with null tags
@@ -292,9 +291,9 @@ export default function EditProduct() {
           customValue: item.customValue,
           color: item.tag.color || item.tag.group?.color || '#gray',
         })) : [];
-      
+
       setSelectedTags(formattedProductTags);
-      
+
     } catch (err) {
       console.error(err);
       setError('Failed to load product data');
@@ -396,7 +395,7 @@ export default function EditProduct() {
       const { uploadFileWithRetry } = await import('@/utils/imageUtils');
       const data = await uploadFileWithRetry(file, 'products/banner');
       setFormData(prev => ({ ...prev, banner: data.url }));
-      
+
       // Clear the input
       e.target.value = '';
     } catch (error) {
@@ -417,14 +416,14 @@ export default function EditProduct() {
         [field]: value
       }
     }));
-    
+
     console.log(`Variant ${variantId} field '${field}' changed to:`, value, '(stored locally, will be saved on form submit)');
   };
 
   const handleVariantDelete = async (variantId: string) => {
     // Add debugging to confirm the variant ID
     console.log('🗑️ Deleting variant with ID:', variantId);
-    
+
     // Find the variant details for logging
     const variantToDelete = variantData?.variants.find(v => v.id === variantId);
     if (variantToDelete) {
@@ -436,7 +435,7 @@ export default function EditProduct() {
     } else {
       console.warn('⚠️ Variant not found in current data:', variantId);
     }
-    
+
     // Immediately delete from database via API call
     try {
       const response = await fetch(`/api/products/${productId}/variants/${variantId}`, {
@@ -452,13 +451,13 @@ export default function EditProduct() {
       }
 
       console.log('✅ Variant deleted successfully from database');
-      
+
       // Refresh variant data to sync with database (this will update the UI)
       await refetchVariants();
-      
+
       // Also refresh product data to update variation attributes
       await fetchProductAndInitialData();
-      
+
     } catch (error) {
       console.error('❌ Error deleting variant:', error);
       setError(`Failed to delete variant: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -468,22 +467,22 @@ export default function EditProduct() {
   // Function to get unused variation attributes and new values
   const getNewVariationData = () => {
     const usedAttributeNames = selectedAttributes.map(attr => attr.name);
-    
+
     // 1. Find completely new attributes (not used at all)
     const newAttributes = availableAttributes.filter(attr => !usedAttributeNames.includes(attr.name));
-    
+
     // 2. Find existing attributes with new values
     const attributesWithNewValues: VariationAttribute[] = [];
-    
+
     selectedAttributes.forEach(selectedAttr => {
       const dbAttribute = availableAttributes.find(attr => attr.name === selectedAttr.name);
       if (dbAttribute) {
         // Get currently used value IDs for this attribute
         const usedValueIds = selectedAttr.values.map(v => v.id);
-        
+
         // Find values in the database that aren't currently used
         const newValues = dbAttribute.values.filter(dbValue => !usedValueIds.includes(dbValue.id));
-        
+
         if (newValues.length > 0) {
           // Create an attribute object with only the new values
           attributesWithNewValues.push({
@@ -496,7 +495,7 @@ export default function EditProduct() {
         }
       }
     });
-    
+
     return {
       newAttributes,
       attributesWithNewValues,
@@ -513,22 +512,22 @@ export default function EditProduct() {
   // Function to generate all possible variant combinations from attributes
   const generateVariantCombinations = (attributes: VariationAttribute[]) => {
     if (attributes.length === 0) return [];
-    
+
     const combinations: Array<Record<string, string>> = [];
-    
+
     const generateCombos = (index: number, currentCombo: Record<string, string>) => {
       if (index === attributes.length) {
         combinations.push({ ...currentCombo });
         return;
       }
-      
+
       const attribute = attributes[index];
       for (const value of attribute.values) {
         currentCombo[attribute.name] = value.value;
         generateCombos(index + 1, currentCombo);
       }
     };
-    
+
     generateCombos(0, {});
     return combinations;
   };
@@ -536,7 +535,7 @@ export default function EditProduct() {
   // Function to import new variations from unused attributes
   const handleImportNewVariations = async () => {
     const { newAttributes, attributesWithNewValues, hasNewData } = getNewVariationData();
-    
+
     if (!hasNewData) {
       setError('No new variation attributes or values available to import. All available options are already being used.');
       return;
@@ -545,7 +544,7 @@ export default function EditProduct() {
     try {
       // Create updated attributes list
       const allAttributes: VariationAttribute[] = [...selectedAttributes];
-      
+
       // 1. Add completely new attributes
       newAttributes.forEach(attr => {
         allAttributes.push({
@@ -556,7 +555,7 @@ export default function EditProduct() {
           values: attr.values
         });
       });
-      
+
       // 2. Update existing attributes with new values
       attributesWithNewValues.forEach(attrWithNewValues => {
         const existingAttrIndex = allAttributes.findIndex(attr => attr.name === attrWithNewValues.name);
@@ -568,17 +567,17 @@ export default function EditProduct() {
           };
         }
       });
-      
+
       // Generate all possible variant combinations from all attributes
       const allCombinations = generateVariantCombinations(allAttributes);
-      
+
       // Get existing variant combinations to avoid duplicates
       const existingCombinations = variantData?.variants.map(variant => variant.attributes) || [];
-      
+
       // Find only the new combinations that don't already exist
       const newCombinations = allCombinations.filter(newCombo => {
         return !existingCombinations.some(existing => {
-          return Object.keys(newCombo).every(key => 
+          return Object.keys(newCombo).every(key =>
             existing[key] === newCombo[key]
           );
         });
@@ -607,7 +606,7 @@ export default function EditProduct() {
 
       // Update selected attributes and save to database
       setSelectedAttributes(allAttributes);
-      
+
       // Use the existing product update API to save the new attributes and variants
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
@@ -628,13 +627,13 @@ export default function EditProduct() {
 
       // Refresh variant data to show the new variants
       await refetchVariants();
-      
+
       setError(''); // Clear any previous errors
       // Show success message
       const totalNewAttrs = newAttributes.length;
       const totalNewValues = attributesWithNewValues.reduce((sum, attr) => sum + attr.values.length, 0);
       console.log(`Successfully imported ${totalNewAttrs} new attributes and ${totalNewValues} new values, generating ${newVariants.length} new variants`);
-      
+
     } catch (err: any) {
       console.error('Error importing variations:', err);
       setError(err.message || 'Failed to import new variations');
@@ -660,8 +659,8 @@ export default function EditProduct() {
   };
 
   const updateSelectedAddon = (addonId: string, field: keyof SelectedAddon, value: any) => {
-    const updated = selectedAddons.map(addon => 
-      addon.addonId === addonId 
+    const updated = selectedAddons.map(addon =>
+      addon.addonId === addonId
         ? { ...addon, [field]: value }
         : addon
     );
@@ -675,7 +674,7 @@ export default function EditProduct() {
   // Merge original variant data with pending changes for display
   const getVariantsWithChanges = () => {
     if (!variantData?.variants) return [];
-    
+
     return variantData.variants.map(variant => {
       const changes = variantChanges[variant.id];
       if (changes) {
@@ -690,7 +689,7 @@ export default function EditProduct() {
     if (e.key === 'Enter') {
       const target = e.target as HTMLElement;
       const tagName = target.tagName.toLowerCase();
-      
+
       // Allow Enter in textarea fields but prevent in input fields
       if (tagName === 'input' || tagName === 'select') {
         e.preventDefault();
@@ -701,20 +700,13 @@ export default function EditProduct() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Only allow submission if it was explicitly triggered by the submit button
-    if (!explicitSubmit) {
-      console.log('Form submission prevented - not explicitly triggered');
-      return;
-    }
-    
-    // Additional check to prevent accidental submissions
+
+    // Prevent double submissions
     if (submitting) {
       return;
     }
-    
+
     setSubmitting(true);
-    setExplicitSubmit(false); // Reset the flag
     setError('');
 
     // Validate group products with zero price must have addons
@@ -760,13 +752,13 @@ export default function EditProduct() {
 
       // Clear local changes after successful submission
       setVariantChanges({});
-      
+
       // Refresh variant data and reload product data to get updated variation attributes
       await refetchVariants();
       await fetchProductAndInitialData();
-      
-      // Optionally navigate back to products list
-      // router.push('/products');
+
+      // Navigate back to products list after successful update
+      router.push('/products');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -782,7 +774,7 @@ export default function EditProduct() {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-6">Edit Product</h1>
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           {error}
@@ -796,7 +788,7 @@ export default function EditProduct() {
             <div>
               <h3 className="font-semibold text-blue-900">Variable Product Pricing</h3>
               <p className="text-blue-700">
-                {priceRange?.hasRange 
+                {priceRange?.hasRange
                   ? `Price Range: ${priceRange.range}`
                   : `Fixed Price: ${priceRange?.range}`
                 }
@@ -809,7 +801,7 @@ export default function EditProduct() {
           </div>
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-6xl">
         {/* Product Type Selection */}
         <div className="mb-6 p-4 border rounded-lg bg-gray-50 hidden">
@@ -882,7 +874,7 @@ export default function EditProduct() {
                 <span className="font-medium">⚖️ Weight-Based</span>
               </label>
             </div>
-            
+
             <div className="text-sm text-gray-600">
               {formData.stockManagementType === 'quantity' ? (
                 <p>📦 <strong>Quantity-based:</strong> Track inventory by individual units/pieces (e.g., 5 shirts, 10 books)</p>
@@ -891,91 +883,91 @@ export default function EditProduct() {
               )}
             </div>
 
-                         {/* Weight-based specific fields */}
-             {formData.stockManagementType === 'weight' && (
-               <div className="mt-4 p-4 bg-white border rounded-lg">
-                 <h4 className="font-medium mb-3">Weight-Based Pricing Configuration</h4>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <div>
-                     <label className="block text-gray-700 mb-2" htmlFor="pricePerUnit">
-                       Price per {weightLabel} <span className="text-red-500">*</span>
-                       <span className="text-sm text-gray-500 block">
-                         (e.g., $0.05 per {weightLabel})
-                       </span>
-                     </label>
-                     <input
-                       type="number"
-                       id="pricePerUnit"
-                       name="pricePerUnit"
-                       value={formData.pricePerUnit}
-                       onChange={handleChange}
-                       className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                       step="0.01"
-                       min="0"
-                       placeholder="0.05"
-                       required={formData.stockManagementType === 'weight'}
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 mb-2" htmlFor="costPrice">
-                       Cost per {weightLabel} <span className="text-sm text-gray-500">(For profit tracking)</span>
-                     </label>
-                     <input
-                       type="number"
-                       id="costPrice"
-                       name="costPrice"
-                       value={formData.costPrice}
-                       onChange={handleChange}
-                       className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-                       step="0.01"
-                       min="0"
-                       placeholder="0.03"
-                     />
-                     <p className="text-xs text-gray-500 mt-1">
-                       Used to calculate profit margins for weight-based products
-                     </p>
-                   </div>
-                   <div>
-                     <label className="block text-gray-700 mb-2">
-                       Weight Unit
-                     </label>
-                     <div className="w-full p-3 border rounded bg-gray-50">
-                       <span className="font-medium text-gray-700">{weightLabel}</span>
-                       <p className="text-xs text-gray-500 mt-1">
-                         Weight unit is set in Settings. Current: {weightLabel}
-                       </p>
-                     </div>
-                   </div>
-                 </div>
-                 
-                 {formData.pricePerUnit && (
-                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                     <p className="text-sm text-green-700">
-                       <strong>Price Preview:</strong> 
-                       <CurrencySymbol />{parseFloat(formData.pricePerUnit || '0').toFixed(2)} per {weightLabel}
-                     </p>
-                     {formData.costPrice && (
-                       <p className="text-sm text-orange-700 mt-1">
-                         <strong>Cost Preview:</strong> 
-                         <CurrencySymbol />{parseFloat(formData.costPrice || '0').toFixed(2)} per {weightLabel}
-                       </p>
-                     )}
-                     {formData.pricePerUnit && formData.costPrice && (
-                       <p className="text-sm text-blue-700 mt-1">
-                         <strong>Profit Margin:</strong> 
-                         {(() => {
-                           const price = parseFloat(formData.pricePerUnit || '0');
-                           const cost = parseFloat(formData.costPrice || '0');
-                           const profit = price - cost;
-                           const margin = price > 0 ? (profit / price) * 100 : 0;
-                           return `${margin.toFixed(1)}% (${profit >= 0 ? '+' : ''}<CurrencySymbol />${profit.toFixed(2)} per ${weightLabel})`;
-                         })()}
-                       </p>
-                     )}
-                   </div>
-                 )}
-               </div>
-             )}
+            {/* Weight-based specific fields */}
+            {formData.stockManagementType === 'weight' && formData.productType === 'simple' && (
+              <div className="mt-4 p-4 bg-white border rounded-lg">
+                <h4 className="font-medium mb-3">Weight-Based Pricing Configuration</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-gray-700 mb-2" htmlFor="pricePerUnit">
+                      Price per {weightLabel} <span className="text-red-500">*</span>
+                      <span className="text-sm text-gray-500 block">
+                        (e.g., $0.05 per {weightLabel})
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      id="pricePerUnit"
+                      name="pricePerUnit"
+                      value={formData.pricePerUnit}
+                      onChange={handleChange}
+                      className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.05"
+                      required={formData.stockManagementType === 'weight' && formData.productType === 'simple'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2" htmlFor="costPrice">
+                      Cost per {weightLabel} <span className="text-sm text-gray-500">(For profit tracking)</span>
+                    </label>
+                    <input
+                      type="number"
+                      id="costPrice"
+                      name="costPrice"
+                      value={formData.costPrice}
+                      onChange={handleChange}
+                      className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.03"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Used to calculate profit margins for weight-based products
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2">
+                      Weight Unit
+                    </label>
+                    <div className="w-full p-3 border rounded bg-gray-50">
+                      <span className="font-medium text-gray-700">{weightLabel}</span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Weight unit is set in Settings. Current: {weightLabel}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {formData.pricePerUnit && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                    <p className="text-sm text-green-700">
+                      <strong>Price Preview:</strong>
+                      <CurrencySymbol />{parseFloat(formData.pricePerUnit || '0').toFixed(2)} per {weightLabel}
+                    </p>
+                    {formData.costPrice && (
+                      <p className="text-sm text-orange-700 mt-1">
+                        <strong>Cost Preview:</strong>
+                        <CurrencySymbol />{parseFloat(formData.costPrice || '0').toFixed(2)} per {weightLabel}
+                      </p>
+                    )}
+                    {formData.pricePerUnit && formData.costPrice && (
+                      <p className="text-sm text-blue-700 mt-1">
+                        <strong>Profit Margin:</strong>
+                        {(() => {
+                          const price = parseFloat(formData.pricePerUnit || '0');
+                          const cost = parseFloat(formData.costPrice || '0');
+                          const profit = price - cost;
+                          const margin = price > 0 ? (profit / price) * 100 : 0;
+                          return `${margin.toFixed(1)}% (${profit >= 0 ? '+' : ''}<CurrencySymbol />${profit.toFixed(2)} per ${weightLabel})`;
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -983,7 +975,7 @@ export default function EditProduct() {
           {/* Left Column - Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
-            
+
             <div>
               <label className="block text-gray-700 mb-2" htmlFor="name">
                 Product Name <span className="text-red-500">*</span>
@@ -999,7 +991,7 @@ export default function EditProduct() {
               />
             </div>
 
-            
+
 
             <div>
               <label className="block text-gray-700 mb-2" htmlFor="description">
@@ -1118,7 +1110,7 @@ export default function EditProduct() {
           {/* Right Column - Pricing & Details */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Pricing & Details</h3>
-            
+
             {/* Only show pricing fields for simple products and quantity-based */}
             {formData.productType === 'simple' && formData.stockManagementType === 'quantity' && (
               <>
@@ -1268,67 +1260,67 @@ export default function EditProduct() {
             </div>
 
 
-        {/* Product Gallery Manager */}
-        <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-800">Product Gallery</h3>
-              <p className="text-sm text-gray-600">Manage your product images with our advanced uploader</p>
-            </div>
-          </div>
+            {/* Product Gallery Manager */}
+            <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">Product Gallery</h3>
+                  <p className="text-sm text-gray-600">Manage your product images with our advanced uploader</p>
+                </div>
+              </div>
 
-          {/* Gallery Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-            {images.map((imageObj, index) => (
-              <div 
-                key={`${imageObj.url}-${index}`} 
-                className="group relative bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border-2 border-purple-100 cursor-move"
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', index.toString());
-                  (e.currentTarget as HTMLElement).style.opacity = '0.5';
-                }}
-                onDragEnd={(e) => {
-                  (e.currentTarget as HTMLElement).style.opacity = '1';
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  (e.currentTarget as HTMLElement).style.borderColor = '#8b5cf6';
-                }}
-                onDragLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
-                  const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                  const dropIndex = index;
-                  if (!Number.isNaN(dragIndex) && dragIndex !== dropIndex) {
-                    const reordered = [...images];
-                    const [dragged] = reordered.splice(dragIndex, 1);
-                    reordered.splice(dropIndex, 0, dragged);
-                    const updated = reordered.map((img, i) => ({ ...img, sortOrder: i }));
-                    setImages(updated);
-                  }
-                }}
-              >
-                <div className="aspect-square overflow-hidden bg-gray-100 flex items-center justify-center">
-                  <img 
-                    src={imageObj.url} 
-                    alt={`Gallery ${index + 1}`} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                    onError={(e) => {
-                      console.error('Failed to load image:', imageObj.url);
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `
+              {/* Gallery Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+                {images.map((imageObj, index) => (
+                  <div
+                    key={`${imageObj.url}-${index}`}
+                    className="group relative bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border-2 border-purple-100 cursor-move"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', index.toString());
+                      (e.currentTarget as HTMLElement).style.opacity = '0.5';
+                    }}
+                    onDragEnd={(e) => {
+                      (e.currentTarget as HTMLElement).style.opacity = '1';
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor = '#8b5cf6';
+                    }}
+                    onDragLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb';
+                      const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                      const dropIndex = index;
+                      if (!Number.isNaN(dragIndex) && dragIndex !== dropIndex) {
+                        const reordered = [...images];
+                        const [dragged] = reordered.splice(dragIndex, 1);
+                        reordered.splice(dropIndex, 0, dragged);
+                        const updated = reordered.map((img, i) => ({ ...img, sortOrder: i }));
+                        setImages(updated);
+                      }
+                    }}
+                  >
+                    <div className="aspect-square overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <img
+                        src={imageObj.url}
+                        alt={`Gallery ${index + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          console.error('Failed to load image:', imageObj.url);
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
                           <div class="flex flex-col items-center justify-center h-full text-gray-500">
                             <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -1336,160 +1328,160 @@ export default function EditProduct() {
                             <span class="text-xs">Failed to load</span>
                           </div>
                         `;
-                      }
-                    }}
-                    onLoad={() => {
-                      console.log('Successfully loaded image:', imageObj.url);
-                    }}
+                          }
+                        }}
+                        onLoad={() => {
+                          console.log('Successfully loaded image:', imageObj.url);
+                        }}
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-none bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
+                    <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                      #{index + 1}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleImageRemove(index)}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-transparent to-transparent p-2">
+                      <p className="text-white text-xs font-medium">Order: {imageObj.sortOrder + 1}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add New Image Card */}
+                <div className="aspect-square border-2 border-dashed border-purple-300 rounded-lg flex flex-col items-center justify-center bg-white hover:bg-purple-50 transition-colors duration-300 cursor-pointer group">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleGalleryImageUpload}
+                    className="hidden"
+                    id="gallery-upload-edit"
+                    disabled={submitting || uploadingGallery}
                   />
-                </div>
-                <div className="absolute inset-0 bg-none bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300"></div>
-                <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                  #{index + 1}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleImageRemove(index)}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-transparent to-transparent p-2">
-                  <p className="text-white text-xs font-medium">Order: {imageObj.sortOrder + 1}</p>
+                  <label htmlFor="gallery-upload-edit" className={`w-full h-full flex flex-col items-center justify-center ${uploadingGallery ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
+                      {uploadingGallery ? (
+                        <svg className="w-6 h-6 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-purple-600 font-medium text-sm">
+                      {uploadingGallery ? 'Uploading...' : 'Add Image'}
+                    </span>
+                    <span className="text-gray-500 text-xs mt-1">
+                      {uploadingGallery ? 'Please wait' : 'Click to browse'}
+                    </span>
+                  </label>
                 </div>
               </div>
-            ))}
-            
-            {/* Add New Image Card */}
-            <div className="aspect-square border-2 border-dashed border-purple-300 rounded-lg flex flex-col items-center justify-center bg-white hover:bg-purple-50 transition-colors duration-300 cursor-pointer group">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleGalleryImageUpload}
-                className="hidden"
-                id="gallery-upload-edit"
-                disabled={submitting || uploadingGallery}
-              />
-              <label htmlFor="gallery-upload-edit" className={`w-full h-full flex flex-col items-center justify-center ${uploadingGallery ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
-                  {uploadingGallery ? (
-                    <svg className="w-6 h-6 text-purple-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  )}
-                </div>
-                <span className="text-purple-600 font-medium text-sm">
-                  {uploadingGallery ? 'Uploading...' : 'Add Image'}
-                </span>
-                <span className="text-gray-500 text-xs mt-1">
-                  {uploadingGallery ? 'Please wait' : 'Click to browse'}
-                </span>
-              </label>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Recommended: 355x250px • Images stored in 'products' directory • Supports JPG, PNG, WebP • Max 15MB per image</span>
-          </div>
-        </div>
-
-        {/* Hero Banner Manager */}
-        <div className="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-sm hidden">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m0 0V1a1 1 0 011-1h2a1 1 0 011 1v18a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1h2a1 1 0 011 1v3" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-800">Hero Banner</h3>
-              <p className="text-sm text-gray-600">Upload a promotional banner for marketing displays</p>
-            </div>
-          </div>
-
-          {formData.banner ? (
-            <div className="relative bg-white rounded-lg overflow-hidden shadow-md border-2 border-emerald-100 mb-4">
-              <div className="aspect-[16/9] md:aspect-[21/9] overflow-hidden">
-                <img 
-                  src={formData.banner} 
-                  alt="Hero Banner" 
-                  className="w-full h-full object-cover" 
-                />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-              <div className="absolute top-4 left-4 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                HERO BANNER
-              </div>
-              <button
-                type="button"
-                onClick={handleBannerRemove}
-                className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-              </button>
-              <div className="absolute bottom-4 left-4 right-4">
-                <p className="text-white font-medium">Current Hero Banner</p>
-                <p className="text-white/80 text-sm">Click the trash icon to remove</p>
+                <span>Recommended: 355x250px • Images stored in 'products' directory • Supports JPG, PNG, WebP • Max 15MB per image</span>
               </div>
             </div>
-          ) : (
-            <div className="border-2 border-dashed border-emerald-300 rounded-lg bg-white hover:bg-emerald-50 transition-colors duration-300 mb-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleBannerImageUpload}
-                className="hidden"
-                id="banner-upload-edit"
-                disabled={submitting || uploadingBanner}
-              />
-              <label htmlFor="banner-upload-edit" className={`aspect-[16/9] md:aspect-[21/9] flex flex-col items-center justify-center ${uploadingBanner ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                  {uploadingBanner ? (
-                    <svg className="w-8 h-8 text-emerald-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  )}
+
+            {/* Hero Banner Manager */}
+            <div className="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl shadow-sm hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m0 0V1a1 1 0 011-1h2a1 1 0 011 1v18a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1h2a1 1 0 011 1v3" />
+                  </svg>
                 </div>
-                <h4 className="text-emerald-600 font-semibold text-lg mb-2">
-                  {uploadingBanner ? 'Uploading Banner...' : 'Upload Hero Banner'}
-                </h4>
-                <p className="text-gray-600 text-center max-w-md">
-                  {uploadingBanner ? 'Please wait while your banner is being uploaded.' : 'Choose a high-quality banner image that represents your product. Recommended size: 840x270px or larger.'}
-                </p>
-                <div className="mt-4 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium">
-                  {uploadingBanner ? 'Uploading...' : 'Click to Browse Files'}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">Hero Banner</h3>
+                  <p className="text-sm text-gray-600">Upload a promotional banner for marketing displays</p>
                 </div>
-              </label>
+              </div>
+
+              {formData.banner ? (
+                <div className="relative bg-white rounded-lg overflow-hidden shadow-md border-2 border-emerald-100 mb-4">
+                  <div className="aspect-[16/9] md:aspect-[21/9] overflow-hidden">
+                    <img
+                      src={formData.banner}
+                      alt="Hero Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                  <div className="absolute top-4 left-4 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    HERO BANNER
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBannerRemove}
+                    className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-white font-medium">Current Hero Banner</p>
+                    <p className="text-white/80 text-sm">Click the trash icon to remove</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-emerald-300 rounded-lg bg-white hover:bg-emerald-50 transition-colors duration-300 mb-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerImageUpload}
+                    className="hidden"
+                    id="banner-upload-edit"
+                    disabled={submitting || uploadingBanner}
+                  />
+                  <label htmlFor="banner-upload-edit" className={`aspect-[16/9] md:aspect-[21/9] flex flex-col items-center justify-center ${uploadingBanner ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                      {uploadingBanner ? (
+                        <svg className="w-8 h-8 text-emerald-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      )}
+                    </div>
+                    <h4 className="text-emerald-600 font-semibold text-lg mb-2">
+                      {uploadingBanner ? 'Uploading Banner...' : 'Upload Hero Banner'}
+                    </h4>
+                    <p className="text-gray-600 text-center max-w-md">
+                      {uploadingBanner ? 'Please wait while your banner is being uploaded.' : 'Choose a high-quality banner image that represents your product. Recommended size: 840x270px or larger.'}
+                    </p>
+                    <div className="mt-4 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium">
+                      {uploadingBanner ? 'Uploading...' : 'Click to Browse Files'}
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span> Recommended: 840x270px • Max 10MB • Stored in 'products/banner' directory</span>
+              </div>
             </div>
-          )}
 
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span> Recommended: 840x270px • Max 10MB • Stored in 'products/banner' directory</span>
-          </div>
-        </div>
 
-            
           </div>
         </div>
 
@@ -1518,7 +1510,7 @@ export default function EditProduct() {
                     </span>
                   )}
                 </button>
-                
+
                 {Object.keys(variantChanges).length > 0 && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-lg">
                     <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1538,7 +1530,7 @@ export default function EditProduct() {
                 <div className="text-blue-700">
                   <strong>Current Attributes:</strong> {selectedAttributes.length > 0 ? selectedAttributes.map(attr => `${attr.name} (${attr.values.length} values)`).join(', ') : 'None'}
                 </div>
-                
+
                 {(() => {
                   const { newAttributes, attributesWithNewValues } = getNewVariationData();
                   return (
@@ -1548,13 +1540,13 @@ export default function EditProduct() {
                           <strong>New Attributes:</strong> {newAttributes.map(attr => `${attr.name} (${attr.values.length} values)`).join(', ')}
                         </div>
                       )}
-                      
+
                       {attributesWithNewValues.length > 0 && (
                         <div className="text-orange-700">
                           <strong>New Values in Existing Attributes:</strong> {attributesWithNewValues.map(attr => `${attr.name} (+${attr.values.length} values)`).join(', ')}
                         </div>
                       )}
-                      
+
                       {newAttributes.length === 0 && attributesWithNewValues.length === 0 && (
                         <div className="text-gray-600">
                           <strong>Available to Import:</strong> None - all variation options are already being used
@@ -1568,7 +1560,7 @@ export default function EditProduct() {
             <p className="text-gray-600 mb-4">
               Manage individual variant pricing and settings. Changes are saved when you submit the form.
             </p>
-            
+
             <VariantManager
               variants={getVariantsWithChanges()}
               onVariantUpdate={handleVariantUpdate}
@@ -1582,7 +1574,7 @@ export default function EditProduct() {
         {(
           <div className="mt-6 hidden">
             <h3 className="text-lg font-semibold mb-4">🧩 Product Addons</h3>
-            
+
             {/* Add New Addon */}
             <div className="mb-4 p-4 border rounded-lg bg-gray-50">
               <h4 className="font-medium mb-3">Add Addon to Product</h4>
@@ -1634,7 +1626,7 @@ export default function EditProduct() {
                         Remove
                       </button>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1652,7 +1644,7 @@ export default function EditProduct() {
                           Original price: <CurrencySymbol />{addon ? parseFloat(addon.price).toFixed(2) : '0.00'}
                         </div>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Sort Order
@@ -1676,7 +1668,7 @@ export default function EditProduct() {
                           />
                           Required Addon
                         </label>
-                        
+
                         <label className="flex items-center">
                           <input
                             type="checkbox"
@@ -1691,8 +1683,8 @@ export default function EditProduct() {
 
                     {addon?.image && (
                       <div className="mt-3">
-                        <img 
-                          src={addon.image} 
+                        <img
+                          src={addon.image}
                           alt={addon.title}
                           className="w-16 h-16 object-cover rounded"
                         />
@@ -1718,9 +1710,9 @@ export default function EditProduct() {
                     <span>Base Product Price:</span>
                     <span className="flex items-center gap-1">
                       <CurrencySymbol />
-                      {formData.productType === 'simple' 
+                      {formData.productType === 'simple'
                         ? (formData.price ? parseFloat(formData.price).toFixed(2) : '0.00')
-                        : formData.productType === 'variable' 
+                        : formData.productType === 'variable'
                           ? 'Variable pricing'
                           : (formData.price ? parseFloat(formData.price).toFixed(2) : '0.00')
                       }
@@ -1739,7 +1731,7 @@ export default function EditProduct() {
                       <span className="flex items-center gap-1">
                         <CurrencySymbol />
                         {(
-                          (formData.price ? parseFloat(formData.price) : 0) + 
+                          (formData.price ? parseFloat(formData.price) : 0) +
                           selectedAddons.reduce((total, addon) => total + parseFloat(addon.price), 0)
                         ).toFixed(2)}
                       </span>
@@ -1860,11 +1852,10 @@ export default function EditProduct() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex gap-4 mt-8">
           <button
             type="submit"
-            onClick={() => setExplicitSubmit(true)}
             className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             disabled={submitting}
           >
