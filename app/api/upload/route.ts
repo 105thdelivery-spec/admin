@@ -7,7 +7,16 @@ export const maxDuration = 60; // 60 seconds timeout for large uploads
 
 // Initialize Google Cloud Storage
 // For local development, set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth
-const storage = new Storage();
+// For production, use service account attached to Cloud Run
+let storage: Storage;
+try {
+  storage = new Storage();
+  console.log('✅ Google Cloud Storage initialized');
+  console.log('📋 Project ID:', storage.projectId || 'Not set (will use default)');
+} catch (error) {
+  console.error('❌ Failed to initialize Google Cloud Storage:', error);
+  throw error;
+}
 
 // Helper function to compress image on server side if needed
 async function compressImageIfNeeded(file: File): Promise<File> {
@@ -67,10 +76,13 @@ export async function POST(request: NextRequest) {
 
     // Check environment variables
     const bucketName = process.env.GCS_BUCKET_NAME;
+    console.log('🪣 Bucket name from env:', bucketName || 'NOT SET');
+
     if (!bucketName) {
-      console.error('GCS_BUCKET_NAME not configured');
+      console.error('❌ GCS_BUCKET_NAME environment variable is not configured');
       return NextResponse.json({
-        error: 'Server configuration error: GCS_BUCKET_NAME not set'
+        error: 'Server configuration error: GCS_BUCKET_NAME not set',
+        hint: 'Please set GCS_BUCKET_NAME in your .env file'
       }, { status: 500 });
     }
 
@@ -90,20 +102,27 @@ export async function POST(request: NextRequest) {
     console.log('File processing complete. Final size:', processedFile.size);
 
     // Upload to Google Cloud Storage with retry logic
-    console.log('Starting upload to Google Cloud Storage...');
+    console.log('📤 Starting upload to Google Cloud Storage...');
+    console.log('📁 Target path:', `gs://${bucketName}/${fileName}`);
     let publicUrl: string = '';
     let retries = 3;
 
     while (retries > 0) {
       try {
         const bucket = storage.bucket(bucketName);
+
+        // Skip explicit bucket existence check to avoid 'storage.buckets.get' permission errors
+        // The 'Storage Object Admin' role allows uploading but not checking bucket metadata
+
         const blob = bucket.file(fileName);
 
         // Convert File to Buffer
         const arrayBuffer = await processedFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        console.log('📦 File converted to buffer, size:', buffer.length, 'bytes');
 
         // Upload file
+        console.log('⬆️  Uploading file...');
         await blob.save(buffer, {
           metadata: {
             contentType: file.type,
@@ -114,12 +133,28 @@ export async function POST(request: NextRequest) {
 
         // Get public URL
         publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-        console.log('Upload successful:', publicUrl);
+        console.log('✅ Upload successful:', publicUrl);
         break; // Success, exit retry loop
 
-      } catch (uploadError) {
+      } catch (uploadError: any) {
         retries--;
-        console.log(`Upload attempt failed, ${retries} retries left:`, uploadError);
+        console.error(`❌ Upload attempt failed, ${retries} retries left`);
+        console.error('Error details:', {
+          message: uploadError.message,
+          code: uploadError.code,
+          errors: uploadError.errors,
+          name: uploadError.name
+        });
+
+        // Provide specific error messages for common issues
+        if (uploadError.code === 403 || uploadError.message?.includes('permission')) {
+          console.error('🔒 Permission denied. Check service account permissions.');
+          console.error('Required roles: Storage Object Creator, Storage Object Viewer');
+        } else if (uploadError.code === 404 || uploadError.message?.includes('not found')) {
+          console.error('🪣 Bucket not found. Check GCS_BUCKET_NAME environment variable.');
+        } else if (uploadError.message?.includes('credentials') || uploadError.message?.includes('authentication')) {
+          console.error('🔑 Authentication failed. Check GOOGLE_APPLICATION_CREDENTIALS.');
+        }
 
         if (retries === 0) {
           throw uploadError; // Re-throw if no retries left
