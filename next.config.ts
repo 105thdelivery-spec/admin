@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   // Configure external packages for server components
-  serverExternalPackages: ['@google-cloud/storage'],
+  serverExternalPackages: [],
   // Optimize bundle size
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

@@ -1,36 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Storage } from '@google-cloud/storage';
+import { put } from '@vercel/blob';
 
-// Configure route to handle larger request bodies (20MB for 15MB file + form data overhead)
-export const runtime = 'nodejs';
-export const maxDuration = 60; // 60 seconds timeout for large uploads
-
-// Initialize Google Cloud Storage
-// For local development, set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth
-// For production, use service account attached to Cloud Run
-let storage: Storage;
-try {
-  storage = new Storage();
-  console.log('✅ Google Cloud Storage initialized');
-  console.log('📋 Project ID:', storage.projectId || 'Not set (will use default)');
-} catch (error) {
-  console.error('❌ Failed to initialize Google Cloud Storage:', error);
-  throw error;
-}
-
-// Helper function to compress image on server side if needed
-async function compressImageIfNeeded(file: File): Promise<File> {
-  // For very large files (>8MB), we could implement server-side compression here
-  // For now, we'll return the original file
-  return file;
-}
+// Configure route to handle larger request bodies
+export const runtime = 'nodejs'; // or 'edge'
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  console.log('Upload API called (Google Cloud Storage)');
+  console.log('Upload API called (Vercel Blob)');
 
   try {
-    // Log request details
-    console.log('Processing form data...');
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const directory = formData.get('directory') as string || 'general';
@@ -43,14 +21,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!file) {
-      console.log('No file provided');
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
     if (!allowedTypes.includes(file.type)) {
-      console.log('Invalid file type:', file.type);
       return NextResponse.json({
         error: 'Invalid file type. Only JPEG, PNG, WebP, and AVIF images are allowed.'
       }, { status: 400 });
@@ -59,129 +35,35 @@ export async function POST(request: NextRequest) {
     // Validate file size (15MB limit)
     const maxSize = 15 * 1024 * 1024; // 15MB
     if (file.size > maxSize) {
-      console.log('File too large:', file.size, 'bytes. Max:', maxSize, 'bytes');
       return NextResponse.json({
         error: 'File too large. Maximum size is 15MB.'
       }, { status: 400 });
     }
 
-    // Validate directory parameter
-    const allowedDirectories = ['courses', 'batches', 'general', 'products', 'products/banner', 'category-icons', 'logos'];
-    if (!allowedDirectories.includes(directory)) {
-      console.log('Invalid directory:', directory);
-      return NextResponse.json({
-        error: 'Invalid directory. Allowed directories: courses, batches, general, products, products/banner, category-icons, logos'
-      }, { status: 400 });
-    }
-
-    // Check environment variables
-    const bucketName = process.env.GCS_BUCKET_NAME;
-    console.log('🪣 Bucket name from env:', bucketName || 'NOT SET');
-
-    if (!bucketName) {
-      console.error('❌ GCS_BUCKET_NAME environment variable is not configured');
-      return NextResponse.json({
-        error: 'Server configuration error: GCS_BUCKET_NAME not set',
-        hint: 'Please set GCS_BUCKET_NAME in your .env file'
-      }, { status: 500 });
-    }
-
-    // Sanitize filename - remove spaces and special characters
+    // Sanitize filename and prepare path
     const sanitizedFileName = file.name
-      .replace(/\s+/g, '-')  // Replace spaces with hyphens
-      .replace(/[^a-zA-Z0-9.-]/g, '')  // Remove special characters except dots and hyphens
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9.-]/g, '')
       .toLowerCase();
 
-    // Generate unique filename with directory structure
-    const timestamp = Date.now();
-    const fileName = `${directory}/${timestamp}-${sanitizedFileName}`;
-    console.log('Generated filename:', fileName);
+    // Construct path with directory
+    const fileName = `${directory}/${Date.now()}-${sanitizedFileName}`;
 
-    // Compress file if needed
-    const processedFile = await compressImageIfNeeded(file);
-    console.log('File processing complete. Final size:', processedFile.size);
+    console.log('⬆️ Uploading to Vercel Blob:', fileName);
 
-    // Upload to Google Cloud Storage with retry logic
-    console.log('📤 Starting upload to Google Cloud Storage...');
-    console.log('📁 Target path:', `gs://${bucketName}/${fileName}`);
-    let publicUrl: string = '';
-    let retries = 3;
+    const blob = await put(fileName, file, {
+      access: 'public',
+    });
 
-    while (retries > 0) {
-      try {
-        const bucket = storage.bucket(bucketName);
-
-        // Skip explicit bucket existence check to avoid 'storage.buckets.get' permission errors
-        // The 'Storage Object Admin' role allows uploading but not checking bucket metadata
-
-        const blob = bucket.file(fileName);
-
-        // Convert File to Buffer
-        const arrayBuffer = await processedFile.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        console.log('📦 File converted to buffer, size:', buffer.length, 'bytes');
-
-        // Upload file
-        console.log('⬆️  Uploading file...');
-        await blob.save(buffer, {
-          metadata: {
-            contentType: file.type,
-            cacheControl: 'public, max-age=31536000', // Cache for 1 year
-          },
-          // Note: public access is managed at bucket level (uniform access)
-        });
-
-        // Get public URL
-        publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
-        console.log('✅ Upload successful:', publicUrl);
-        break; // Success, exit retry loop
-
-      } catch (uploadError: any) {
-        retries--;
-        console.error(`❌ Upload attempt failed, ${retries} retries left`);
-        console.error('Error details:', {
-          message: uploadError.message,
-          code: uploadError.code,
-          errors: uploadError.errors,
-          name: uploadError.name
-        });
-
-        // Provide specific error messages for common issues
-        if (uploadError.code === 403 || uploadError.message?.includes('permission')) {
-          console.error('🔒 Permission denied. Check service account permissions.');
-          console.error('Required roles: Storage Object Creator, Storage Object Viewer');
-        } else if (uploadError.code === 404 || uploadError.message?.includes('not found')) {
-          console.error('🪣 Bucket not found. Check GCS_BUCKET_NAME environment variable.');
-        } else if (uploadError.message?.includes('credentials') || uploadError.message?.includes('authentication')) {
-          console.error('🔑 Authentication failed. Check GOOGLE_APPLICATION_CREDENTIALS.');
-        }
-
-        if (retries === 0) {
-          throw uploadError; // Re-throw if no retries left
-        }
-
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    if (!publicUrl) {
-      throw new Error('Upload failed - no URL returned');
-    }
+    console.log('✅ Upload successful:', blob.url);
 
     return NextResponse.json({
-      url: publicUrl,
+      url: blob.url,
       fileName: fileName
     });
 
   } catch (error) {
     console.error('Error uploading file:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined
-    });
-
     return NextResponse.json(
       {
         error: 'Failed to upload file',
