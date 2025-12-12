@@ -29,6 +29,12 @@ interface Order {
   taxAmount: number;
   shippingAmount: number;
   discountAmount: number;
+  // Coupon fields
+  couponCode?: string | null;
+  couponDiscountAmount?: number;
+  // Loyalty points fields
+  pointsToRedeem?: number;
+  pointsDiscountAmount?: number;
   totalAmount: number;
   currency: string;
   notes?: string;
@@ -307,7 +313,8 @@ export default function EditOrder() {
     // Get current totals to check max redemption limit
     const currentSubtotal = Number(order?.subtotal) || 0;
     const currentDiscount = editData.discountAmount || 0;
-    const maxAllowedDiscount = (currentSubtotal - currentDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
+    const currentCouponDiscount = Number(order?.couponDiscountAmount) || 0;
+    const maxAllowedDiscount = (currentSubtotal - currentDiscount - currentCouponDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
 
     const finalDiscountAmount = Math.min(discountAmount, maxAllowedDiscount);
     const finalPointsToRedeem = Math.floor(finalDiscountAmount / loyaltySettings.redemptionValue);
@@ -333,7 +340,8 @@ export default function EditOrder() {
       // Turn on - use maximum allowed points
       const currentSubtotal = Number(order?.subtotal) || 0;
       const currentDiscount = editData.discountAmount || 0;
-      const maxAllowedDiscount = (currentSubtotal - currentDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
+      const currentCouponDiscount = Number(order?.couponDiscountAmount) || 0;
+      const maxAllowedDiscount = (currentSubtotal - currentDiscount - currentCouponDiscount) * (loyaltySettings.maxRedemptionPercent / 100);
       const maxPointsDiscount = customerPoints.availablePoints * loyaltySettings.redemptionValue;
 
       const finalDiscountAmount = Math.min(maxAllowedDiscount, maxPointsDiscount);
@@ -621,9 +629,17 @@ export default function EditOrder() {
     const shippingAmount = Number(editData.shippingAmount) || 0;
     const discountAmount = Number(editData.discountAmount) || 0;
     const pointsDiscountAmount = Number(editData.pointsDiscountAmount) || 0;
+    const couponDiscountAmount = Number(order.couponDiscountAmount) || 0;
 
-    // Calculate: subtotal - discount - points discount + tax + shipping
-    const discountedSubtotal = subtotal - discountAmount - pointsDiscountAmount;
+    const isDuplicatePointsDiscount =
+      discountAmount > 0 &&
+      pointsDiscountAmount > 0 &&
+      Math.abs(discountAmount - pointsDiscountAmount) < 0.01;
+    const manualDiscount = isDuplicatePointsDiscount ? 0 : discountAmount;
+    const combinedNonCouponDiscount = manualDiscount + pointsDiscountAmount;
+
+    // Calculate: subtotal - (coupon + manual + points) + tax + shipping
+    const discountedSubtotal = subtotal - couponDiscountAmount - combinedNonCouponDiscount;
     const total = discountedSubtotal + taxAmount + shippingAmount;
 
     return Math.max(0, total); // Ensure total is never negative
@@ -639,9 +655,17 @@ export default function EditOrder() {
     const shippingAmount = Number(editData.shippingAmount) || 0;
     const discountAmount = Number(editData.discountAmount) || 0;
     const pointsDiscountAmount = Number(editData.pointsDiscountAmount) || 0;
+    const couponDiscountAmount = Number(order.couponDiscountAmount) || 0;
+
+    const isDuplicatePointsDiscount =
+      discountAmount > 0 &&
+      pointsDiscountAmount > 0 &&
+      Math.abs(discountAmount - pointsDiscountAmount) < 0.01;
+    const manualDiscount = isDuplicatePointsDiscount ? 0 : discountAmount;
+    const combinedNonCouponDiscount = manualDiscount + pointsDiscountAmount;
 
     // Calculate new total for points calculation
-    const discountedSubtotal = subtotal - discountAmount - pointsDiscountAmount;
+    const discountedSubtotal = subtotal - couponDiscountAmount - combinedNonCouponDiscount;
     const newTotal = Math.max(0, discountedSubtotal + taxAmount + shippingAmount);
 
     const baseAmount = loyaltySettings.earningBasis === 'total' ? newTotal : subtotal;
@@ -1243,12 +1267,29 @@ export default function EditOrder() {
                 <span>{formatCurrency(editData.shippingAmount)}</span>
               </div>
 
-              {editData.discountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Discount:</span>
-                  <span>-{formatCurrency(editData.discountAmount)}</span>
+              {Number(order.couponDiscountAmount || 0) > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span>Coupon{order.couponCode ? ` (${order.couponCode})` : ''}:</span>
+                  <span>-{formatCurrency(order.couponDiscountAmount)}</span>
                 </div>
               )}
+
+              {(() => {
+                const discountAmount = Number(editData.discountAmount) || 0;
+                const pointsDiscountAmount = Number(editData.pointsDiscountAmount) || 0;
+                const isDuplicatePointsDiscount =
+                  discountAmount > 0 &&
+                  pointsDiscountAmount > 0 &&
+                  Math.abs(discountAmount - pointsDiscountAmount) < 0.01;
+                const manualDiscount = isDuplicatePointsDiscount ? 0 : discountAmount;
+
+                return manualDiscount > 0 ? (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount:</span>
+                    <span>-{formatCurrency(manualDiscount)}</span>
+                  </div>
+                ) : null;
+              })()}
 
               {editData.pointsDiscountAmount > 0 && (
                 <div className="flex justify-between text-purple-600">

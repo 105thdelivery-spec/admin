@@ -205,6 +205,17 @@ export default function OrderInvoice() {
   if (!order) return <div className="p-8">Order not found</div>;
 
   const orderItems = order.items || [];
+  const couponDiscountAmount = Number(order.couponDiscountAmount || 0);
+  const couponCode = order.couponCode || null;
+  const pointsDiscountAmount = Number(order.pointsDiscountAmount || 0);
+  const pointsToRedeem = Number(order.pointsToRedeem || 0);
+  const baseDiscountAmount = Number(order.discountAmount || 0);
+
+  const isDuplicatePointsDiscount =
+    baseDiscountAmount > 0 &&
+    pointsDiscountAmount > 0 &&
+    Math.abs(baseDiscountAmount - pointsDiscountAmount) < 0.01;
+  const manualDiscountAmount = isDuplicatePointsDiscount ? 0 : baseDiscountAmount;
 
   return (
     <>
@@ -516,10 +527,24 @@ export default function OrderInvoice() {
                     </div>
                   )}
 
-                  {parseFloat(order.discountAmount) > 0 && (
+                  {couponDiscountAmount > 0 && (
+                    <div className="flex justify-between py-2 text-green-700">
+                      <span>Coupon{couponCode ? ` (${couponCode})` : ''}:</span>
+                      <span>-{formatAmount(couponDiscountAmount)}</span>
+                    </div>
+                  )}
+
+                  {manualDiscountAmount > 0 && (
                     <div className="flex justify-between py-2 text-green-600">
                       <span>Discount:</span>
-                      <span>-{formatAmount(order.discountAmount)}</span>
+                      <span>-{formatAmount(manualDiscountAmount)}</span>
+                    </div>
+                  )}
+
+                  {pointsDiscountAmount > 0 && (
+                    <div className="flex justify-between py-2 text-purple-700">
+                      <span>Points Discount{pointsToRedeem > 0 ? ` (${pointsToRedeem} pts)` : ''}:</span>
+                      <span>-{formatAmount(pointsDiscountAmount)}</span>
                     </div>
                   )}
 

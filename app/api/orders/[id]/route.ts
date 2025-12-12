@@ -119,9 +119,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const newShipping = shippingAmount !== undefined ? shippingAmount : Number(order.shippingAmount);
       const newDiscount = discountAmount !== undefined ? discountAmount : Number(order.discountAmount);
       const newPointsDiscount = pointsDiscountAmount !== undefined ? pointsDiscountAmount : Number(order.pointsDiscountAmount);
+      const couponDiscount = Number((order as any).couponDiscountAmount || 0);
 
-      // Recalculate: subtotal - discount - points discount + tax + shipping
-      const subtotalAfterDiscounts = Number(order.subtotal) - newDiscount - newPointsDiscount;
+      // Avoid double-counting legacy data where discountAmount was used for points AND pointsDiscountAmount is also set.
+      const isDuplicatePointsDiscount =
+        newDiscount > 0 &&
+        newPointsDiscount > 0 &&
+        Math.abs(newDiscount - newPointsDiscount) < 0.01;
+      const combinedNonCouponDiscount = isDuplicatePointsDiscount
+        ? Math.max(newDiscount, newPointsDiscount)
+        : (newDiscount + newPointsDiscount);
+
+      // Recalculate: subtotal - discounts (coupon + manual + points) + tax + shipping
+      const subtotalAfterDiscounts = Number(order.subtotal) - couponDiscount - combinedNonCouponDiscount;
       newTotalAmount = Math.max(0, subtotalAfterDiscounts + Number(order.taxAmount || 0) + newShipping);
     }
 

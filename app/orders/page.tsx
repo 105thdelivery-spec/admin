@@ -64,6 +64,10 @@ interface Order {
   taxAmount: number;
   shippingAmount: number;
   discountAmount: number;
+  pointsToRedeem?: number;
+  pointsDiscountAmount?: number;
+  couponCode?: string | null;
+  couponDiscountAmount?: number;
   totalAmount: number;
   currency: string;
   shippingFirstName?: string;
@@ -118,6 +122,20 @@ export default function OrdersList() {
     try {
       const res = await fetch('/api/orders');
       const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to fetch orders:', data);
+        setOrders([]);
+        setFilteredOrders([]);
+        return;
+      }
+
+      if (!Array.isArray(data)) {
+        console.error('Orders API returned non-array payload:', data);
+        setOrders([]);
+        setFilteredOrders([]);
+        return;
+      }
       
       // Process orders to add weight-based information to items
       const processedOrders = data.map((order: Order) => {
@@ -145,6 +163,21 @@ export default function OrdersList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getDiscountBreakdown = (order: any) => {
+    const couponDiscount = Number(order.couponDiscountAmount || 0);
+    const pointsDiscount = Number(order.pointsDiscountAmount || 0);
+    const baseDiscount = Number(order.discountAmount || 0);
+
+    // Avoid double-counting legacy data where discountAmount duplicated pointsDiscountAmount.
+    const isDuplicatePointsDiscount =
+      baseDiscount > 0 &&
+      pointsDiscount > 0 &&
+      Math.abs(baseDiscount - pointsDiscount) < 0.01;
+
+    const manualDiscount = isDuplicatePointsDiscount ? 0 : baseDiscount;
+    return { couponDiscount, pointsDiscount, manualDiscount };
   };
 
   const fetchAddons = async () => {
@@ -575,8 +608,27 @@ export default function OrdersList() {
       title: 'Total',
       width: '120px',
       render: (_: any, order: Order) => (
-        <div className="font-medium text-sm">
-          {formatCurrency(order.totalAmount)}
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(order.totalAmount)}</div>
+          {(() => {
+            const { couponDiscount, pointsDiscount, manualDiscount } = getDiscountBreakdown(order);
+            const lines: Array<{ label: string; value: number; className: string }> = [];
+            if (couponDiscount > 0) lines.push({ label: `Coupon${order.couponCode ? ` (${order.couponCode})` : ''}`, value: couponDiscount, className: 'text-green-700' });
+            if (pointsDiscount > 0) lines.push({ label: `Points${order.pointsToRedeem ? ` (${order.pointsToRedeem} pts)` : ''}`, value: pointsDiscount, className: 'text-purple-700' });
+            if (manualDiscount > 0) lines.push({ label: 'Discount', value: manualDiscount, className: 'text-green-700' });
+
+            if (lines.length === 0) return null;
+            return (
+              <div className="mt-1 space-y-0.5">
+                {lines.map((l) => (
+                  <div key={l.label} className={`text-xs flex justify-between gap-2 ${l.className}`}>
+                    <span className="truncate">{l.label}</span>
+                    <span className="whitespace-nowrap">- {Number(l.value).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )
     },/*}

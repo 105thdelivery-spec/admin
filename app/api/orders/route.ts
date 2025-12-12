@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { eq, and, isNull, desc, or } from 'drizzle-orm';
 import { getStockManagementSettingDirect } from '@/lib/stockManagement';
 import { isWeightBasedProduct, convertToGrams } from '@/utils/weightUtils';
+import { deepParseJSON } from '@/utils/jsonUtils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,7 +43,8 @@ export async function GET(req: NextRequest) {
         // Parse addons JSON for each item
         const itemsWithParsedAddons = items.map(item => ({
           ...item,
-          addons: item.addons ? JSON.parse(item.addons as string) : null
+          // Drizzle may return JSON columns as objects already; handle both string/object safely.
+          addons: item.addons ? deepParseJSON(item.addons) : null
         }));
 
         // Fetch assigned driver information if exists
