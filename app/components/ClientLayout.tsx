@@ -31,7 +31,8 @@ import {
   SettingsIcon,
   LogOutIcon,
   XIcon,
-  MapPinIcon
+  MapPinIcon,
+  TicketIcon
 } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -118,6 +119,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     
     { name: 'Inventory', href: '/inventory', icon: BarChart3Icon, category: 'operations' },
     { name: 'Orders', href: '/orders', icon: ShoppingCartIcon, category: 'operations', badge: pendingOrdersCount > 0 ? pendingOrdersCount : null },
+    { name: 'Coupons', href: '/coupons', icon: TicketIcon, category: 'operations' },
      /*{ name: 'Drivers', href: '/drivers', icon: TruckIcon, category: 'operations' },*/
     { name: 'Pickup Locations', href: '/pickup-locations', icon: MapPinIcon, category: 'operations' },
     { name: 'Reports', href: '/reports', icon: TrendingUpIcon, category: 'operations' },
