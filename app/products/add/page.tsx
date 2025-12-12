@@ -165,6 +165,7 @@ export default function AddProduct() {
     metaDescription: '',
     productType: 'variable', // 'simple' or 'variable'
     banner: '', // Banner image URL
+    videoUrl: '', // Optional product video URL (Vercel Blob)
     // Weight-based stock management fields
     stockManagementType: 'weight', // 'quantity' or 'weight'
     pricePerUnit: '', // Price per unit for weight-based products
@@ -198,6 +199,8 @@ export default function AddProduct() {
   const [error, setError] = useState('');
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -285,6 +288,59 @@ export default function AddProduct() {
 
   const handleBannerRemove = () => {
     setFormData(prev => ({ ...prev, banner: '' }));
+  };
+
+  const handleVideoRemove = () => {
+    setFormData(prev => ({ ...prev, videoUrl: '' }));
+    setVideoFile(null);
+  };
+
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setVideoFile(file);
+  };
+
+  const handleVideoUpload = async () => {
+    if (!videoFile) {
+      setError('Please select a video file to upload.');
+      return;
+    }
+
+    const allowedTypes = ['video/mp4', 'video/webm'];
+    if (!allowedTypes.includes(videoFile.type)) {
+      setError('Invalid video type. Only MP4 and WebM are allowed.');
+      return;
+    }
+
+    if (videoFile.size > 75 * 1024 * 1024) {
+      setError('Video is too large. Maximum size is 75MB.');
+      return;
+    }
+
+    setUploadingVideo(true);
+    setError('');
+
+    try {
+      const videoFormData = new FormData();
+      videoFormData.append('file', videoFile);
+
+      const res = await fetch('/api/product-video/upload', {
+        method: 'POST',
+        body: videoFormData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to upload video');
+      }
+
+      setFormData(prev => ({ ...prev, videoUrl: data.url }));
+      setVideoFile(null);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload video. Please try again.');
+    } finally {
+      setUploadingVideo(false);
+    }
   };
 
   // New gallery image upload handler
@@ -563,6 +619,7 @@ export default function AddProduct() {
         floweringTime: formData.floweringTime || null,
         yieldAmount: formData.yieldAmount || null,
         images: images.length > 0 ? images : null,
+        videoUrl: formData.videoUrl || null,
         selectedTags: selectedTags.length > 0 ? selectedTags : null,
         // Enhanced variation data structure
         variationMatrix: formData.productType === 'variable' ? generateVariationMatrix() : null,
@@ -1176,6 +1233,71 @@ export default function AddProduct() {
                 </svg>
                 <span>Recommended: 355x250px • Images stored in 'products' directory • Supports JPG, PNG, WebP • Max 15MB per image</span>
               </div>
+            </div>
+
+            {/* Product Video Manager */}
+            <div className="mt-8 bg-slate-50 p-6 rounded-xl shadow-sm border">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Product Video (optional)</h3>
+                  <p className="text-sm text-gray-600">Upload a single MP4/WebM video (stored in Vercel Blob)</p>
+                </div>
+                {formData.videoUrl && (
+                  <button
+                    type="button"
+                    onClick={handleVideoRemove}
+                    className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                    disabled={submitting || uploadingVideo}
+                  >
+                    Remove video
+                  </button>
+                )}
+              </div>
+
+              {formData.videoUrl ? (
+                <div className="space-y-3">
+                  <video
+                    src={formData.videoUrl}
+                    controls
+                    preload="metadata"
+                    className="w-full max-w-3xl rounded-lg bg-black"
+                  />
+                  <div className="text-xs text-gray-600 break-all">
+                    <span className="font-medium">URL:</span> {formData.videoUrl}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    onChange={handleVideoFileChange}
+                    disabled={submitting || uploadingVideo}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleVideoUpload}
+                      disabled={submitting || uploadingVideo || !videoFile}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingVideo ? 'Uploading...' : 'Upload video'}
+                    </button>
+                    <div className="text-sm text-gray-600">
+                      {videoFile ? (
+                        <span>
+                          Selected: <span className="font-medium">{videoFile.name}</span>
+                        </span>
+                      ) : (
+                        <span>Select a video to upload</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Allowed: MP4/WebM • Max 75MB
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Hero Banner Manager */}
