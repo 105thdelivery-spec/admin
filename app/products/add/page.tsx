@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { upload } from '@vercel/blob/client';
 import ImageUploader from '../../components/ImageUploader';
 import CurrencySymbol from '../../components/CurrencySymbol';
 import RichTextEditor from '../../components/RichTextEditor';
@@ -201,6 +202,7 @@ export default function AddProduct() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     fetchInitialData();
@@ -293,6 +295,7 @@ export default function AddProduct() {
   const handleVideoRemove = () => {
     setFormData(prev => ({ ...prev, videoUrl: '' }));
     setVideoFile(null);
+    setVideoUploadProgress(null);
   };
 
   const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,25 +322,40 @@ export default function AddProduct() {
 
     setUploadingVideo(true);
     setError('');
+    setVideoUploadProgress(0);
 
     try {
-      const videoFormData = new FormData();
-      videoFormData.append('file', videoFile);
+      const rawName = videoFile.name || 'video';
+      const sanitized = rawName
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9.-]/g, '')
+        .toLowerCase();
 
-      const res = await fetch('/api/product-video/upload', {
-        method: 'POST',
-        body: videoFormData,
+      const ext = sanitized.includes('.') ? sanitized.split('.').pop() : undefined;
+      const safeExt = ext && ['mp4', 'webm'].includes(ext)
+        ? ext
+        : videoFile.type === 'video/webm'
+          ? 'webm'
+          : 'mp4';
+
+      const baseName = sanitized.replace(/\.(mp4|webm)$/i, '') || 'video';
+      const pathname = `products/videos/${Date.now()}-${baseName}.${safeExt}`;
+
+      const blob = await upload(pathname, videoFile, {
+        access: 'public',
+        handleUploadUrl: '/api/product-video/handle-upload',
+        multipart: true,
+        onUploadProgress: ({ percentage }) => {
+          setVideoUploadProgress(Math.max(0, Math.min(100, Math.round(percentage))));
+        },
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to upload video');
-      }
-
-      setFormData(prev => ({ ...prev, videoUrl: data.url }));
+      setFormData(prev => ({ ...prev, videoUrl: blob.url }));
       setVideoFile(null);
+      setVideoUploadProgress(100);
     } catch (err: any) {
       setError(err?.message || 'Failed to upload video. Please try again.');
+      setVideoUploadProgress(null);
     } finally {
       setUploadingVideo(false);
     }
@@ -1293,6 +1311,19 @@ export default function AddProduct() {
                       )}
                     </div>
                   </div>
+                  {uploadingVideo && videoUploadProgress !== null && (
+                    <div className="space-y-1">
+                      <div className="w-full max-w-md h-2 bg-gray-200 rounded overflow-hidden">
+                        <div
+                          className="h-2 bg-blue-600 transition-all"
+                          style={{ width: `${videoUploadProgress}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Uploading: {videoUploadProgress}%
+                      </div>
+                    </div>
+                  )}
                   <div className="text-xs text-gray-600">
                     Allowed: MP4/WebM • Max 75MB
                   </div>
