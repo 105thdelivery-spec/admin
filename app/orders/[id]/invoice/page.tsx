@@ -200,6 +200,34 @@ export default function OrderInvoice() {
     }
   };
 
+  const getNoteFromAddons = (addonsData: any) => {
+    if (!addonsData) return null;
+
+    try {
+      let parsed = addonsData;
+
+      // Handle double-encoded data (legacy orders)
+      if (typeof addonsData === 'string') {
+        parsed = JSON.parse(addonsData);
+      }
+
+      // If still a string after first parse, parse again (double-encoded)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
+
+      const note = parsed?.note;
+      if (typeof note === 'string' && note.trim().length > 0) {
+        return note.trim();
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing note from addons:', error);
+      return null;
+    }
+  };
+
   if (loading) return <div className="p-8">Loading invoice...</div>;
   if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
   if (!order) return <div className="p-8">Order not found</div>;
@@ -368,6 +396,14 @@ export default function OrderInvoice() {
                                   const variantAttrs = getVariantAttributesFromAddons(item.addons);
                                   return variantAttrs && (
                                     <div className="text-sm text-purple-600"> {variantAttrs}</div>
+                                  );
+                                })()}
+                                {(() => {
+                                  const note = getNoteFromAddons(item.addons);
+                                  return note && (
+                                    <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                                      📝 Note: {note}
+                                    </div>
                                   );
                                 })()}
                                 {item.isWeightBased && item.weightQuantity && (

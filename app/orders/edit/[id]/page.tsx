@@ -94,6 +94,7 @@ interface OrderItem {
   isWeightBased?: boolean;
   weightQuantity?: number; // Weight in grams
   weightUnit?: string; // Display unit (grams, kg)
+  note?: string;
   addons?: Array<{
     addonId: string;
     addonTitle?: string;
@@ -620,6 +621,34 @@ export default function EditOrder() {
     }
   };
 
+  const getNoteFromAddons = (addonsData: any) => {
+    if (!addonsData) return null;
+
+    try {
+      let parsed = addonsData;
+
+      // Handle double-encoded data (legacy orders)
+      if (typeof addonsData === 'string') {
+        parsed = JSON.parse(addonsData);
+      }
+
+      // If still a string after first parse, parse again (double-encoded)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
+
+      const note = parsed?.note;
+      if (typeof note === 'string' && note.trim().length > 0) {
+        return note.trim();
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing note from addons:', error);
+      return null;
+    }
+  };
+
   const calculateNewTotal = () => {
     if (!order) return 0;
 
@@ -1062,6 +1091,14 @@ export default function EditOrder() {
                             const variantAttrs = getVariantAttributesFromAddons(item.addons);
                             return variantAttrs && (
                               <div className="text-sm text-purple-600">📦 {variantAttrs}</div>
+                            );
+                          })()}
+                          {(() => {
+                            const note = getNoteFromAddons(item.addons);
+                            return note && (
+                              <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                                📝 Note: {note}
+                              </div>
                             );
                           })()}
                           {item.sku && (
