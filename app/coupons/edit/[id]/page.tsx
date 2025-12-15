@@ -1,16 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Save, TicketIcon, PowerOffIcon } from 'lucide-react';
-
-type IdName = { id: string; name: string };
 
 type Coupon = {
   id: string;
@@ -29,10 +25,6 @@ type Coupon = {
   firstOrderOnly: boolean;
 };
 
-function uniqStrings(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
 function formatNumber(value: string): string {
   if (value === '') return '';
   const n = Number(value);
@@ -48,73 +40,11 @@ function toDateTimeLocal(value?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function IdPicker({
-  title,
-  items,
-  selectedIds,
-  onChange,
-}: {
-  title: string;
-  items: IdName[];
-  selectedIds: string[];
-  onChange: (next: string[]) => void;
-}) {
-  const [q, setQ] = useState('');
-  const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    if (!qq) return items;
-    return items.filter((i) => i.name.toLowerCase().includes(qq) || i.id.toLowerCase().includes(qq));
-  }, [items, q]);
-
-  const toggle = (id: string) => {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter((x) => x !== id));
-    } else {
-      onChange(uniqStrings([...selectedIds, id]));
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center justify-between">
-          <span>{title}</span>
-          <Badge variant="secondary">{selectedIds.length}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..." />
-        <div className="max-h-64 overflow-auto border rounded p-2 space-y-2">
-          {filtered.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No matches</div>
-          ) : (
-            filtered.slice(0, 200).map((item) => (
-              <label key={item.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(item.id)}
-                  onChange={() => toggle(item.id)}
-                />
-                <span className="truncate">{item.name}</span>
-              </label>
-            ))
-          )}
-          {filtered.length > 200 ? (
-            <div className="text-xs text-muted-foreground">Showing first 200 results. Refine search.</div>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function EditCouponPage() {
   const router = useRouter();
   const params = useParams();
   const couponId = params.id as string;
 
-  const [products, setProducts] = useState<IdName[]>([]);
-  const [categories, setCategories] = useState<IdName[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -144,10 +74,8 @@ export default function EditCouponPage() {
       setLoading(true);
       setError('');
       try {
-        const [couponRes, prodRes, catRes] = await Promise.all([
+        const [couponRes] = await Promise.all([
           fetch(`/api/coupons/${couponId}`),
-          fetch('/api/products'),
-          fetch('/api/categories'),
         ]);
 
         if (!couponRes.ok) {
@@ -157,22 +85,6 @@ export default function EditCouponPage() {
 
         const couponData = await couponRes.json();
         const c: Coupon = couponData.coupon;
-
-        const prodData = await prodRes.json();
-        const catData = await catRes.json();
-
-        const prodItems: IdName[] = Array.isArray(prodData)
-          ? prodData
-              .map((p: any) => ({ id: p?.product?.id, name: p?.product?.name }))
-              .filter((x: any) => x.id && x.name)
-          : [];
-
-        const catItems: IdName[] = Array.isArray(catData)
-          ? catData.map((x: any) => ({ id: x?.id, name: x?.name })).filter((x: any) => x.id && x.name)
-          : [];
-
-        setProducts(prodItems);
-        setCategories(catItems);
 
         setForm({
           code: c.code || '',
@@ -333,8 +245,6 @@ export default function EditCouponPage() {
               />
             </div>
 
-            <Separator />
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Type *</label>
@@ -357,114 +267,19 @@ export default function EditCouponPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Max discount (percent only)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.maxDiscountAmount}
-                  onChange={(e) => setForm((p) => ({ ...p, maxDiscountAmount: formatNumber(e.target.value) }))}
-                  disabled={form.discountType !== 'percent'}
-                />
-              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Option</label>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Min subtotal</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.minSubtotal}
-                  onChange={(e) => setForm((p) => ({ ...p, minSubtotal: formatNumber(e.target.value) }))}
-                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
+                  />
+                  Active
+                </label>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Start at</label>
-                <Input type="datetime-local" value={form.startAt} onChange={(e) => setForm((p) => ({ ...p, startAt: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">End at</label>
-                <Input type="datetime-local" value={form.endAt} onChange={(e) => setForm((p) => ({ ...p, endAt: e.target.value }))} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Usage limit (total)</label>
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={form.usageLimitTotal}
-                  onChange={(e) => setForm((p) => ({ ...p, usageLimitTotal: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Usage limit (per user)</label>
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={form.usageLimitPerUser}
-                  onChange={(e) => setForm((p) => ({ ...p, usageLimitPerUser: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Options</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.firstOrderOnly}
-                      onChange={(e) => setForm((p) => ({ ...p, firstOrderOnly: e.target.checked }))}
-                    />
-                    First order only
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.isActive}
-                      onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
-                    />
-                    Active
-                  </label>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Applicability</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <IdPicker
-                title="Include products"
-                items={products}
-                selectedIds={form.includedProductIds}
-                onChange={(next) => setForm((p) => ({ ...p, includedProductIds: next }))}
-              />
-              <IdPicker
-                title="Exclude products"
-                items={products}
-                selectedIds={form.excludedProductIds}
-                onChange={(next) => setForm((p) => ({ ...p, excludedProductIds: next }))}
-              />
-              <IdPicker
-                title="Include categories"
-                items={categories}
-                selectedIds={form.includedCategoryIds}
-                onChange={(next) => setForm((p) => ({ ...p, includedCategoryIds: next }))}
-              />
-              <IdPicker
-                title="Exclude categories"
-                items={categories}
-                selectedIds={form.excludedCategoryIds}
-                onChange={(next) => setForm((p) => ({ ...p, excludedCategoryIds: next }))}
-              />
             </div>
           </CardContent>
         </Card>
