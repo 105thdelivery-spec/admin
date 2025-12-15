@@ -280,6 +280,15 @@ export const productAddons = mysqlTable("product_addons", {
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Product Categories (many-to-many)
+export const productCategories = mysqlTable("product_categories", {
+  productId: varchar("product_id", { length: 255 }).notNull(),
+  categoryId: varchar("category_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.productId, table.categoryId] }),
+}));
+
 // Product Inventory
 export const productInventory = mysqlTable("product_inventory", {
   id: varchar("id", { length: 255 }).primaryKey(),

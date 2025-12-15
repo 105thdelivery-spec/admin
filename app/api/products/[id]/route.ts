@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, productVariants, productAddons, productTags, tags, variationAttributeValues } from '@/lib/schema';
+import { products, productVariants, productAddons, productTags, tags, variationAttributeValues, productCategories } from '@/lib/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { nanoid } from 'nanoid';
@@ -20,7 +20,15 @@ export async function GET(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json(product);
+    const categoryRows = await db
+      .select({ categoryId: productCategories.categoryId })
+      .from(productCategories)
+      .where(eq(productCategories.productId, id));
+
+    return NextResponse.json({
+      ...product,
+      categoryIds: categoryRows.map((r) => r.categoryId),
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to get product' }, { status: 500 });
@@ -39,8 +47,23 @@ export async function PUT(
       variantChanges,
       addons,
       selectedTags,
+      categoryIds,
       ...productData 
     } = await req.json();
+
+    const normalizedCategoryIds: string[] = Array.isArray(categoryIds)
+      ? categoryIds.filter((cid: any) => typeof cid === 'string' && cid.trim().length > 0)
+      : [];
+
+    // Keep categoryId for backwards compatibility (primary-ish category)
+    if (normalizedCategoryIds.length > 0) {
+      productData.categoryId = normalizedCategoryIds[0];
+    } else {
+      productData.categoryId = null;
+    }
+
+    // Subcategories disabled for multi-category products (do not update via this endpoint)
+    delete (productData as any).subcategoryId;
 
     // If name is being updated, regenerate slug and ensure uniqueness
     if (productData.name) {
@@ -265,6 +288,19 @@ export async function PUT(
       }
     }
 
+    // Replace product category assignments (many-to-many)
+    if (categoryIds !== undefined) {
+      await db.delete(productCategories).where(eq(productCategories.productId, id));
+      if (normalizedCategoryIds.length > 0) {
+        await db.insert(productCategories).values(
+          normalizedCategoryIds.map((cid) => ({
+            productId: id,
+            categoryId: cid,
+          }))
+        );
+      }
+    }
+
     // Update the main product (after all variant operations)
     await db
       .update(products)
@@ -279,7 +315,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json(updatedProduct);
+    const updatedCategoryRows = await db
+      .select({ categoryId: productCategories.categoryId })
+      .from(productCategories)
+      .where(eq(productCategories.productId, id));
+
+    return NextResponse.json({
+      ...updatedProduct,
+      categoryIds: updatedCategoryRows.map((r) => r.categoryId),
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });

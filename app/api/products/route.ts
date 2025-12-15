@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, categories, subcategories, productVariants, productAddons, productTags, tags, variationAttributeValues } from '@/lib/schema';
+import { products, categories, subcategories, productVariants, productAddons, productTags, tags, variationAttributeValues, productCategories } from '@/lib/schema';
 import { v4 as uuidv4 } from 'uuid';
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       banner,
       videoUrl,
       categoryId,
+      categoryIds,
       subcategoryId,
       tags,
       selectedTags, // New tag system
@@ -73,6 +74,10 @@ export async function POST(req: NextRequest) {
       floweringTime,
       yieldAmount
     } = await req.json();
+    const normalizedCategoryIds: string[] = Array.isArray(categoryIds)
+      ? categoryIds.filter((id: any) => typeof id === 'string' && id.trim().length > 0)
+      : (typeof categoryId === 'string' && categoryId.trim().length > 0 ? [categoryId] : []);
+
 
     // Validate required fields
     if (!name) {
@@ -135,8 +140,10 @@ export async function POST(req: NextRequest) {
       images: images ? JSON.stringify(images) : null,
       banner: banner || null,
       videoUrl: videoUrl || null,
-      categoryId: categoryId || null,
-      subcategoryId: subcategoryId || null,
+      // Keep categoryId for backwards compatibility (set to first selected category if available)
+      categoryId: normalizedCategoryIds.length > 0 ? normalizedCategoryIds[0] : (categoryId || null),
+      // Subcategories disabled for multi-category products; keep existing field nullable for compatibility
+      subcategoryId: null,
       tags: tags ? JSON.stringify(tags) : null,
       weight: weight ? weight.toString() : null,
       dimensions: dimensions ? JSON.stringify(dimensions) : null,
@@ -164,6 +171,16 @@ export async function POST(req: NextRequest) {
 
     // Start transaction for product and variants
     await db.insert(products).values(newProduct);
+
+    // Create product category assignments (many-to-many)
+    if (normalizedCategoryIds.length > 0) {
+      await db.insert(productCategories).values(
+        normalizedCategoryIds.map((cid) => ({
+          productId: newProduct.id,
+          categoryId: cid,
+        }))
+      );
+    }
 
     // If it's a variable product, create variants
     if (productType === 'variable' && variants && variants.length > 0) {

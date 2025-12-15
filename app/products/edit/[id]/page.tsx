@@ -93,8 +93,7 @@ export default function EditProduct() {
     price: '',
     comparePrice: '',
     costPrice: '',
-    categoryId: '',
-    subcategoryId: '',
+    categoryIds: [] as string[],
     weight: '',
     isFeatured: false,
     isActive: true,
@@ -132,7 +131,6 @@ export default function EditProduct() {
 
   const [images, setImages] = useState<{ url: string; sortOrder: number }[]>([]);
   const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -147,15 +145,7 @@ export default function EditProduct() {
     fetchProductAndInitialData();
   }, [productId]);
 
-
-
-  useEffect(() => {
-    if (formData.categoryId) {
-      fetchSubcategories(formData.categoryId);
-    } else {
-      setSubcategories([]);
-    }
-  }, [formData.categoryId]);
+  // Subcategories disabled (multi-category products)
 
   const fetchProductAndInitialData = async () => {
     try {
@@ -188,8 +178,7 @@ export default function EditProduct() {
         price: product.price || '',
         comparePrice: product.comparePrice || '',
         costPrice: product.costPrice || '',
-        categoryId: product.categoryId || '',
-        subcategoryId: product.subcategoryId || '',
+        categoryIds: Array.isArray(product.categoryIds) ? product.categoryIds : (product.categoryId ? [product.categoryId] : []),
         weight: product.weight || '',
         isFeatured: product.isFeatured || false,
         isActive: product.isActive !== undefined ? product.isActive : true,
@@ -308,22 +297,25 @@ export default function EditProduct() {
     }
   };
 
-  const fetchSubcategories = async (categoryId: string) => {
-    try {
-      const res = await fetch('/api/subcategories');
-      const data = await res.json();
-      const filtered = data.filter((sub: any) => sub.categoryId === categoryId);
-      setSubcategories(filtered);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Subcategories disabled (multi-category products)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    });
+  };
+
+  const toggleCategoryId = (categoryId: string) => {
+    setFormData(prev => {
+      const exists = prev.categoryIds.includes(categoryId);
+      return {
+        ...prev,
+        categoryIds: exists
+          ? prev.categoryIds.filter(id => id !== categoryId)
+          : [...prev.categoryIds, categoryId],
+      };
     });
   };
 
@@ -806,6 +798,7 @@ export default function EditProduct() {
         floweringTime: formData.floweringTime || null,
         yieldAmount: formData.yieldAmount || null,
         images: images.length > 0 ? images : null,
+        categoryIds: formData.categoryIds,
         videoUrl: formData.videoUrl || null,
         selectedTags: selectedTags.length > 0 ? selectedTags : null,
         // Note: variationAttributes not sent - variants are the source of truth
@@ -1316,23 +1309,33 @@ export default function EditProduct() {
             )}
 
             <div>
-              <label className="block text-gray-700 mb-2" htmlFor="categoryId">
-                Category
+              <label className="block text-gray-700 mb-2">
+                Categories
               </label>
-              <select
-                id="categoryId"
-                name="categoryId"
-                value={formData.categoryId}
-                onChange={handleChange}
-                className="w-full p-2 border rounded focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Select a category</option>
-                {categories.map((category: any) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <div className="border rounded p-3 max-h-56 overflow-y-auto bg-white">
+                {categories.length === 0 ? (
+                  <div className="text-sm text-gray-500">No categories found</div>
+                ) : (
+                  <div className="space-y-2">
+                    {categories.map((category: any) => {
+                      const checked = formData.categoryIds.includes(category.id);
+                      return (
+                        <label key={category.id} className="flex items-center gap-2 text-sm text-gray-800">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleCategoryId(category.id)}
+                          />
+                          <span>{category.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                Selected: {formData.categoryIds.length}
+              </div>
             </div>
 
 
